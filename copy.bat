@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 :: CONFIGURATION SECTION
 :: ==========================================
 :: Define your single target destination folder
-set "DEST_DIR=C:\Users\damia\AppData\Roaming\.minecraft\figura\avatars\Hypno"
+set "DEST_DIR=%AppData%\Roaming\.minecraft\figura\avatars\Hypno"
 set "my_dir=%CD%"
 set "SOURCE_DIR=%my_dir%"
 
