@@ -1,0 +1,9 @@
+Tail.lua by Auriafoxgirl
+
+Sound samples used:
+"Water_Paddle_heavy_029.wav" by EpicWizard on freesound.org
+"Wobble_long.wav" by deleted_user_2104797 on freesound.org
+"Nonstop stomach growls, deep gurgles, intensive hunger rumbles, tummy monster burps" by SamanthaCastleberry on freesound.org
+"Hungry Stomach Gurgling.wav" by UnderASpell on freesound.org
+"Burp 4" by tehteho on freesound.org
+"Burp 5" by tehteho on freesound.org

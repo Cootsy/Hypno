@@ -1,0 +1,16 @@
+{
+  "name":"§6Hypno Lizard v1.0",
+  "description":"A custom hypno lizard fan species from Rainwrold..",
+  "authors": [
+    "cootzy",
+    "SquAPI (Squishy)",
+    "JimmyAnims (Jimmy)",
+    "GSAnimBlend (Grandpa Scout)",
+    "PhysBoneAPI & Colour Picker (Chloe)",
+    "Swinging Physics (Manuel)"
+  ],
+  "color": "#FFAAEF",
+  "physics": {
+    "vanillaPoses": false
+  }
+}
