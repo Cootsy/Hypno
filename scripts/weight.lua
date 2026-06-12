@@ -478,9 +478,9 @@ end
 --Pings
 --==========================================================================================
 
-function pings.SyncPing()
-  setWeight(weight_)
-  setMacro(macro)
+function pings.SyncPing(amount, value)
+  setWeight(amount)
+  setMacro(value)
 end
 
 function pings.setWeight(amount)
@@ -562,7 +562,7 @@ end
 function we_.tick() 
   syncPingTimer = syncPingTimer + 1
   if (syncPingTimer >= 80) then
-      pings.SyncPing()
+      pings.SyncPing(weight_, macro)
       syncPingTimer = 0
   end
 

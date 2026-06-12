@@ -414,8 +414,8 @@ function RotateLegs(delta, context)
     --local mainLegOff = vanilla_model.RIGHT_LEG:getOffset()
     local mainLeftLegRot = vanilla_model.LEFT_LEG:getOriginRot()
 
-    mainRightLegRot = vec(mainRightLegRot.x / 0.80, mainRightLegRot.y / 0.80, mainRightLegRot.z / 0.80)
-    mainLeftLegRot = vec(mainLeftLegRot.x / 0.80, mainLeftLegRot.y / 0.80, mainLeftLegRot.z / 0.80)
+    mainRightLegRot = vec(mainRightLegRot.x * 0.80, mainRightLegRot.y * 0.80, mainRightLegRot.z * 0.80)
+    mainLeftLegRot = vec(mainLeftLegRot.x * 0.80, mainLeftLegRot.y * 0.80, mainLeftLegRot.z * 0.80)
 
     -- Apply these transformations to your extra legs
     -- You can add/subtract to the rotation/offset here to offset the legs manually
