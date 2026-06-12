@@ -2,7 +2,7 @@
 -- THIS IS THE MAIN SCRIPT THAT RUNS THE MAIN FUNCTIONS OF THE MODEL
 --==========================================================================================
 --Version
-local version_ = "1.0.3"
+local version_ = "1.0.4"
 local size_ = 4
 
 --Definitions

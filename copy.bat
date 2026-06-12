@@ -5,7 +5,7 @@ setlocal enabledelayedexpansion
 :: CONFIGURATION SECTION
 :: ==========================================
 :: Define your single target destination folder
-set "DEST_DIR=%AppData%\Roaming\.minecraft\figura\avatars\Hypno"
+set "DEST_DIR=%AppData%\.minecraft\figura\avatars\Hypno"
 set "my_dir=%CD%"
 set "SOURCE_DIR=%my_dir%"
 
@@ -35,16 +35,7 @@ ROBOCOPY "%SOURCE_DIR%\textures" "%DEST_DIR%\textures" /E /XO /R:2 /W:5
 :: ==========================================
 echo Copying individual files...
 
-:: File 1: Single file copy
-robocopy "%SOURCE_DIR%" "%DEST_DIR%" "_CREDITS.txt" /XO /NJH /NJS /NC /NS /NP
-:: File 2: Single file copy
-robocopy "%SOURCE_DIR%" "%DEST_DIR%" "_READ_ME.txt" /XO /NJH /NJS /NC /NS /NP
-:: File 3: Single file copy
-robocopy "%SOURCE_DIR%" "%DEST_DIR%" "avatar.json" /XO /NJH /NJS /NC /NS /NP
-:: File 4: Single file copy
-robocopy "%SOURCE_DIR%" "%DEST_DIR%" "avatar.png" /XO /NJH /NJS /NC /NS /NP
-:: File 4: Single file copy
-robocopy "%SOURCE_DIR%" "%DEST_DIR%" "config.lua" /XO /NJH /NJS /NC /NS /NP
+robocopy "%SOURCE_DIR%" "%DEST_DIR%" "_CREDITS.txt" "_READ_ME.txt" "avatar.json" "avatar.png" "config.lua" /XO /NJH /NJS /NC /NS /NP
 
 :: ==========================================
 :: FINISH
