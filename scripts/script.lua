@@ -47,6 +47,8 @@ local wheel_ = require('scripts.wheel')
 ----
 -- Defines the default scale of the model (it's 4 because I modeled mine tiny </3)
 local baseModelScale_ = 4
+local playerScale_ = 4
+local playerAdditionalScale_ = 1
 
 -- More Defined Bodyparts
 local rightFrontLeg_ = lizardLegs_.RightFrontLeg
@@ -96,8 +98,7 @@ local droolCounter_ = 0
 local droolInterval_ = 20
 
 -- Options
-local playerScale_ = 4
-local playerAdditionalScale_ = 1
+
 local eyeHeight_ = false
 local regularEyes_ = false
 local emmissiveEyes_ = false
@@ -295,7 +296,7 @@ local function ModelInit()
   models:setPrimaryRenderType("CUTOUT_CULL") 
 
   -- Adjust scale of Model and Items Inversely
-  ScaleModel(baseModelScale_)
+  ScaleModel(playerScale_)
 
   -- Set the model's root rotation to be not allowed. Rotations are now manual
   renderer:setRootRotationAllowed(false)
