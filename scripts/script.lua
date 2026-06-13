@@ -91,6 +91,31 @@ local listOfAllHeads_ =
 	{"minecraft:dragon_head",nil}
 }
 
+local armors_ = {
+  helment = {slot = 6, id = nil, enchanted = false, modelPart = lizardHead_.Helmet},
+  chestplate = {slot = 5, id = nil, enchanted = false, modelPart = lizardBody_ and {
+    Chestplate = lizardBody_.Chestplate,
+    TailChestplate = lizardTail_ and lizardTail_.Chestplate or nil,
+    TailChestPlate2 = lizardTail_ and lizardTail_.ChestPlate2 or nil
+  } or nil},
+  leggings = {slot = 4, id = nil, enchanted = false, modelPart = lizardLegs_ and {
+    RightFrontLeg = lizardLegs_.RightFrontLeg.RFLLeggings,
+    LeftFrontLeg = lizardLegs_.LeftFrontLeg.LFLLeggings,
+    RightMidLeg = lizardLegs_.RightMidLeg.RMLLeggings,
+    LeftMidLeg = lizardLegs_.LeftMidLeg.LMLLeggings,
+    RightHindLeg = lizardLegs_.RightHindLeg.RHLLeggings,
+    LeftHindLeg = lizardLegs_.LeftHindLeg.LHLLeggings
+  } or nil},
+  boots = {slot = 3, id = nil, enchanted = false, modelPart = lizardLegs_ and {
+    RightFrontLeg = lizardLegs_.RightFrontLeg.RFLBoots,
+    LeftFrontLeg = lizardLegs_.LeftFrontLeg.LFLBoots,
+    RightMidLeg = lizardLegs_.RightMidLeg.RMLBoots,
+    LeftMidLeg = lizardLegs_.LeftMidLeg.LMLBoots,
+    RightHindLeg = lizardLegs_.RightHindLeg.RHLBoots,
+    LeftHindLeg = lizardLegs_.LeftHindLeg.LHLBoots
+  } or nil}
+}
+
 -- Drool stuff
 local ravenous_ = false
 local hungerStare_ = false
@@ -132,6 +157,9 @@ local currentHeadPitch_ = 0
 local headRotationLimitYaw_ = 65
 local headRotationLimitPitch_ = 30
 local headRotationSpeed_ = 0.25
+
+--GUID stuff
+local lastScreen_ = nil
 
 --==========================================================================================
 -- Other File Stuff
@@ -300,6 +328,8 @@ local function ModelInit()
 
   -- Set the model's root rotation to be not allowed. Rotations are now manual
   renderer:setRootRotationAllowed(false)
+
+
 end
 
 function ScaleModel(newScale)
@@ -452,32 +482,6 @@ local function ManageCrouchingTick()
 end
 
 
-function TypingTick()
-	-- Must be loaded
-  if not player:isLoaded() then return end
-
-  -- Get GUI name
-  local currentScreen = host:getScreen()
-
-  --Check if using chat
-  if currentScreen == "minecraft:chat" then
-      print("You are currently typing in chat!")
-        
-      -- Example: Make a "thinking" thought-bubble model part visible
-      -- if models.model.root.ThoughtBubble then
-      --     models.model.root.ThoughtBubble:setVisible(true)
-      -- end
-
-  else
-      -- Runs when you close the chat box and return to standard movement
-      -- Example: Hide your thinking model part again
-      -- if models.model.root.ThoughtBubble then
-      --     models.model.root.ThoughtBubble:setVisible(false)
-      -- end
-  end
-end
-
-
 local function WaterRender()
 	local pose = player:getPose()
   local inLiquid = player:isInWater() or player:isInLava()
@@ -508,151 +512,9 @@ function ShakeTick()
   end
 end
 
---==========================================================================================
--- Pings
---==========================================================================================
-
-function pings.SetAdditionalScale(value)
-  playerAdditionalScale_ = value
-  ScaleModel(playerScale_)
-end
-
-function pings.ScaleModel(value)
-end
-
---Eye Pings
-----
-function pings.RegularEyes(enabled)
-	--if lizardHead_.Collar then
-	--	lizardHead_.Collar:setVisible(enabled)
-	--end
-
-	regularEyes_ = enabled
-	log(enabled and "[RegularEyes] On" or "[RegularEyes] Off")
-end
-
-function pings.EmmissiveEyes(enabled)
-	--if lizardHead_.Collar then
-	--	lizardHead_.Collar:setVisible(enabled)
-	--end
-	emmissiveEyes_ = enabled
-
-	if lizardHead_.Eyes then
-		lizardHead_.Eyes:setPrimaryRenderType( (enabled) and "EMISSIVE" or "TRANSLUCENT")
-	end
-	
-
-	log("[EmmissiveEyes]", (enabled and "+" or "-").." EmmissiveEyes")
-end
-
-function pings.EffectsEyes(enabled)
-	--if lizardHead_.Collar then
-	--	lizardHead_.Collar:setVisible(enabled)
-	--end
-	eyeEffects_ = enabled
-	log("[EffectsEyes]", (enabled and "+" or "-").." EffectsEyes")
-end
-
---Scale Pings
-----
-function pings.ModelScaler(val)
-	if val == 0 then
-		playerScale_ = baseModelScale_
-	else
-		playerScale_ = math.clamp(playerScale_ + val, 1, 8)
-	end
-
-	ScaleModel(playerScale_)
-
-	log("[Scaler]", playerScale_)
-end
-
-function pings.EyeHeight(eye) 
-	eyeHeight_ = eye 
-	log(eye and "[Size] Off-Set (WARNING)" or "[EyeHeight] Vanilla")
-end
 
 
---Item pings
-----
-function pings.spear(spear)
-	local LISpear = lizardItems_.ItemSpear
 
-  --Technically this model has ALL the spears so this must be done
-  LISpear.Explosive:setVisible(spear)
-  LISpear.Base:setVisible(spear)
-  LISpear.Spearmaster:setVisible(false)
-
-	altSpear_ = spear
-	log(spear and "[Spear] On" or "[Spear] Off")
-end
-
-
---Armor Pings
-----
-function pings.LizardArmor(enabled)
-	lizardArmor_ = enabled
-
-  sounds:playSound("minecraft:item.armor.equip_generic", player:getPos(), 1.5, 0.85)
-
-	log("[LizardArmor]", (enabled and "+" or "-").." LizardArmor")
-end
-
-function pings.LizardBag(enabled)
-	if lizardHead_.Bag then
-		lizardHead_.Bag:setVisible(enabled)
-	end
-
-	lizardBag_ = enabled
-	
-	log("[LizardBag]", (enabled and "+" or "-").." LizardBag")
-end
-
-function pings.LizardCollar(enabled)
-	if lizardHead_.Collar then
-		lizardHead_.Collar:setVisible(enabled)
-	end
-
-	collar_ = enabled
-
-	log("[LizardCollar]", (enabled and "+" or "-").." Collar")
-end
-
---Other Pings
-----
-
-function pings.Ravenous(enabled)
-	ravenous_ = enabled
-
-	log("[Ravenous]", (enabled and "+" or "-").." Ravenous")
-end
-
-function pings.HungerStare(enabled)
-	hungerStare_ = enabled
-
-	log("[HungerStare]", (enabled and "+" or "-").." HungerStare")
-end
-
-
-function pings.Bite()
-  -- "sound" refers to your sound.ogg file
-  -- player:getPos() makes it play at your current location
-  sounds:playSound("sounds.lizBite2B", player:getPos())
-end
-
-function pings.Charge()
-  -- "sound" refers to your sound.ogg file
-  -- player:getPos() makes it play at your current location
-  local options = {"sounds.lizCharge1E"}
-  local ranOp = math.random(1,#options)
-  sounds:playSound(options[ranOp], player:getPos())
-end
-
-
---Makes an object visible when Chat is open
-function pings.setChat(bool)
-  --slugcat.FullBody.ComMark:setVisible(bool)
-end
 
 --==========================================================================================
 -- Drool
@@ -729,6 +591,40 @@ function ChatOpenTick()
     pings.setChat(isChatOpen)
   end
   wasChatOpen_=isChatOpen
+end
+
+function GUIDTick()
+	-- Must be loaded
+  if not player:isLoaded() then return end
+
+  -- Get GUI name
+  local currentScreen = host:getScreen()
+
+  if currentScreen ~= lastScreen_ then
+    if lastScreen_ then
+      --end the last screen stuff
+      print("You just closed the " .. lastScreen_ .. " screen!")
+    end
+
+    lastScreen_ = currentScreen
+
+    --Check if using chat
+    if currentScreen == "minecraft:chat" then
+        print("You are currently typing in chat!")
+          
+        -- Example: Make a "thinking" thought-bubble model part visible
+        -- if models.model.root.ThoughtBubble then
+        --     models.model.root.ThoughtBubble:setVisible(true)
+        -- end
+
+    else
+        -- Runs when you close the chat box and return to standard movement
+        -- Example: Hide your thinking model part again
+        -- if models.model.root.ThoughtBubble then
+        --     models.model.root.ThoughtBubble:setVisible(false)
+        -- end
+    end
+  end
 end
 
 --==========================================================================================
@@ -908,157 +804,65 @@ local function HeadTableGetUVVec(tbl, x)
   return nil
 end
 
-local function ArmorTick()
 
-	--Get the enchantments on worn armor
-	local bootsEnchant = player:getItem(3).tag.Enchantments
-	local leggingsEnchant = player:getItem(4).tag.Enchantments
-	local chestplateEnchant = player:getItem(5).tag.Enchantments
-	local helmetEnchant = player:getItem(6).tag.Enchantments
-	
-	--get the armor pieces
-	local boots = lizardArmor_ and player:getItem(3).id or nil
-	local leggings = lizardArmor_ and player:getItem(4).id or nil
-	local chestplate = lizardArmor_ and player:getItem(5).id or nil
-	local helmet = lizardArmor_ and player:getItem(6).id or nil
-	--determine whether a "mask" is on
-	local mask = h_.TableContains(listOfAllHeads_, helmet)
 
-	--Get the type for helmet and return color for it if it exists
-	local type = helmet and helmet:lower():match("minecraft:([^_]+)")
-	local color = type and gearToColorTable_[type]
-	
-	local helmetModel = lizardHead_.Helmet
-	if helmetModel then
-		helmetModel:setVisible((color ~= nil))
-		helmetModel:setColor(color)
-		helmetModel:setSecondaryRenderType((helmetEnchant == nil) and "NONE" or "GLINT")
-	end
-
-	local maskVec = helmet and HeadTableGetUVVec(listOfAllHeads_, helmet)
+local function WearMask(armor)
+  local mask = h_.TableContains(listOfAllHeads_, armor.id)
+  local maskVec = armor.id and HeadTableGetUVVec(listOfAllHeads_, armor.id)
 	
 	local masksModel = lizardHead_.Masks
 	if masksModel then
 		masksModel.NotSadMask:setUVPixels(maskVec)
 	
-		masksModel.NotSadMask.BaseMask:setVisible((mask == true and helmet ~= "minecraft:zombie_head" and helmet ~= "minecraft:dragon_head"))
-		masksModel.NotSadMask.Horns:setVisible((mask == true and (helmet == "minecraft:skeleton_skull" or helmet == "minecraft:wither_skeleton_skull")))
-		masksModel.NotSadMask.Spikes:setVisible((mask == true and helmet == "minecraft:piglin_head"))
-		masksModel.SadMask:setVisible((mask == true and helmet == "minecraft:zombie_head"))
-		masksModel.ChiefMask:setVisible((mask == true and helmet == "minecraft:dragon_head"))
+		masksModel.NotSadMask.BaseMask:setVisible((mask == true and armor.id ~= "minecraft:zombie_head" and armor.id ~= "minecraft:dragon_head"))
+		masksModel.NotSadMask.Horns:setVisible((mask == true and (armor.id == "minecraft:skeleton_skull" or armor.id == "minecraft:wither_skeleton_skull")))
+		masksModel.NotSadMask.Spikes:setVisible((mask == true and armor.id == "minecraft:piglin_head"))
+		masksModel.SadMask:setVisible((mask == true and armor.id == "minecraft:zombie_head"))
+		masksModel.ChiefMask:setVisible((mask == true and armor.id == "minecraft:dragon_head"))
 	end
+end
 
-	
+local function WearArmor(armor)
+  --Get the type for the armor and return color for it if it exists
+	local armorType = armor.id and armor.id:lower():match("minecraft:([^_]+)")
+	local color = armorType and gearToColorTable_[armorType] or nil
+  local vis = (color ~= nil)
 
-	--Get the type for chestplate and return color for it if it exists
-	type = chestplate and chestplate:lower():match("minecraft:([^_]+)")
-	color = type and gearToColorTable_[type]
-  
-	if lizardBody_ then
-
-    if lizardBody_.Chestplate then
-      lizardBody_.Chestplate:setVisible((color ~= nil))
-      lizardBody_.Chestplate:setColor(color)
-      lizardBody_.Chestplate:setSecondaryRenderType((chestplateEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardTail_.Chestplate then
-      lizardTail_.Chestplate:setVisible((color ~= nil))
-      lizardTail_.Chestplate:setColor(color)
-      lizardTail_.Chestplate:setSecondaryRenderType((chestplateEnchant == nil) and "NONE" or "GLINT")
-		end
-
-    if lizardTail_.Tail2 and lizardTail_.Tail2.Chestplate then
-      lizardTail_.Tail2.Chestplate:setVisible((color ~= nil))
-      lizardTail_.Tail2.Chestplate:setColor(color)
-      lizardTail_.Tail2.Chestplate:setSecondaryRenderType((chestplateEnchant == nil) and "NONE" or "GLINT")
-    end
-	end
-
-	--Get the type for leggings and return color for it if it exists
-	type = leggings and leggings:lower():match("minecraft:([^_]+)")
-	color = type and gearToColorTable_[type]
-
-	if lizardLegs_ then
-    if lizardLegs_.RightFrontLeg then
-      lizardLegs_.RightFrontLeg.RFLLeggings:setVisible((color ~= nil))
-      lizardLegs_.RightFrontLeg.RFLLeggings:setColor(color)
-      lizardLegs_.RightFrontLeg.RFLLeggings:setSecondaryRenderType((leggingsEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardLegs_.LeftFrontLeg then
-      lizardLegs_.LeftFrontLeg.LFLLeggings:setVisible((color ~= nil))
-      lizardLegs_.LeftFrontLeg.LFLLeggings:setColor(color)
-      lizardLegs_.LeftFrontLeg.LFLLeggings:setSecondaryRenderType((leggingsEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardLegs_.RightMidLeg then
-      lizardLegs_.RightMidLeg.RMLLeggings:setVisible((color ~= nil))
-      lizardLegs_.RightMidLeg.RMLLeggings:setColor(color)
-      lizardLegs_.RightMidLeg.RMLLeggings:setSecondaryRenderType((leggingsEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardLegs_.LeftMidLeg then
-      lizardLegs_.LeftMidLeg.LMLLeggings:setVisible((color ~= nil))
-      lizardLegs_.LeftMidLeg.LMLLeggings:setColor(color)
-      lizardLegs_.LeftMidLeg.LMLLeggings:setSecondaryRenderType((leggingsEnchant == nil) and "NONE" or "GLINT") 
-    end
-
-    if lizardLegs_.RightHindLeg then
-      lizardLegs_.RightHindLeg.RHLLeggings:setVisible((color ~= nil))
-      lizardLegs_.RightHindLeg.RHLLeggings:setColor(color)
-      lizardLegs_.RightHindLeg.RHLLeggings:setSecondaryRenderType((leggingsEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardLegs_.LeftHindLeg then
-      lizardLegs_.LeftHindLeg.LHLLeggings:setVisible((color ~= nil))
-      lizardLegs_.LeftHindLeg.LHLLeggings:setColor(color)
-      lizardLegs_.LeftHindLeg.LHLLeggings:setSecondaryRenderType((leggingsEnchant == nil) and "NONE" or "GLINT")
-    end
-	end
-
-	--Get the type for boots and return color for it if it exists
-	type = boots and boots:lower():match("minecraft:([^_]+)")
-	color = type and gearToColorTable_[type]
-
-	if lizardLegs_ then
-		if lizardLegs_.RightFrontLeg then
-      lizardLegs_.RightFrontLeg.RFLBoots:setVisible((color ~= nil))
-      lizardLegs_.RightFrontLeg.RFLBoots:setColor(color)
-      lizardLegs_.RightFrontLeg.RFLBoots:setSecondaryRenderType((bootsEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardLegs_.LeftFrontLeg then
-      lizardLegs_.LeftFrontLeg.LFLBoots:setVisible((color ~= nil))
-      lizardLegs_.LeftFrontLeg.LFLBoots:setColor(color)
-      lizardLegs_.LeftFrontLeg.LFLBoots:setSecondaryRenderType((bootsEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardLegs_.RightMidLeg then
-      lizardLegs_.RightMidLeg.RMLBoots:setVisible((color ~= nil))
-      lizardLegs_.RightMidLeg.RMLBoots:setColor(color)
-      lizardLegs_.RightMidLeg.RMLBoots:setSecondaryRenderType((bootsEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardLegs_.LeftMidLeg then
-      lizardLegs_.LeftMidLeg.LMLBoots:setVisible((color ~= nil))
-      lizardLegs_.LeftMidLeg.LMLBoots:setColor(color)
-      lizardLegs_.LeftMidLeg.LMLBoots:setSecondaryRenderType((bootsEnchant == nil) and "NONE" or "GLINT") 
-    end
-
-    if lizardLegs_.RightHindLeg then
-      lizardLegs_.RightHindLeg.RHLBoots:setVisible((color ~= nil))
-      lizardLegs_.RightHindLeg.RHLBoots:setColor(color)
-      lizardLegs_.RightHindLeg.RHLBoots:setSecondaryRenderType((bootsEnchant == nil) and "NONE" or "GLINT")
-    end
-
-    if lizardLegs_.LeftHindLeg then
-      lizardLegs_.LeftHindLeg.LHLBoots:setVisible((color ~= nil))
-      lizardLegs_.LeftHindLeg.LHLBoots:setColor(color)
-      lizardLegs_.LeftHindLeg.LHLBoots:setSecondaryRenderType((bootsEnchant == nil) and "NONE" or "GLINT")
+  if armor.modelPart then
+    if type(armor.modelPart) == "table" then
+      for _, part in pairs(armor.modelPart) do
+        part:setVisible(vis)
+        part:setColor(color)
+        part:setSecondaryRenderType((armor.enchanted) and "GLINT" or "NONE")
+      end
+    else
+      armor.modelPart:setVisible(vis)
+      armor.modelPart:setColor(color)
+      armor.modelPart:setSecondaryRenderType((armor.enchanted) and "GLINT" or "NONE")
     end
 	end
 end
+
+local function ArmorTick()
+  if lizardArmor_ == false then return end
+
+  for i, armor in ipairs(armors_) do
+    local item = player:getItem(armor.slot)
+    local enchantStatus = item.hasGlint and item:hasGlint() or (item.tag and item.tag.Enchantments ~= nil)
+    if armor.id == item.id and armor.enchanted == enchantStatus then 
+      --this armor piece has not changed since last tick, so do nothing
+    else
+      armor.id = item.id
+      armor.enchanted = enchantStatus
+
+      if armor.slot == 6 then
+        WearMask(armor)
+      end
+      WearArmor(armor)
+    end
+  end
+end
+
 
 local function CollarTick()
   if lizardHead_.Collar then
@@ -1152,15 +956,23 @@ local function BlockingSoundDamage(amount, source, type)
   local isUsingItem = player:isUsingItem()
 
   if amount == 0 and isUsingItem then
-    local itemM = player:getHeldItem(false)
+    local itemM = player:getHeldItem(true)
     local itemO = player:getHeldItem(false)
 
     local shieldBlock = false
 
-    if itemM and h_.TableContains(itemM:getTags(), "forge:tools/shields") then
-      shieldBlock = true
-    elseif itemO and h_.TableContains(itemO:getTags(), "forge:tools/shields") then 
-      shieldBlock = true
+    -- Check Main Hand
+    if itemM then
+      local id = itemM.id:lower()
+      if id:find("shield") or h_.TableContains(itemM:getTags(), "forge:tools/shields") then
+        shieldBlock = true
+      end
+    -- Check Off Hand
+    elseif itemO then
+      local id = itemO.id:lower()
+      if id:find("shield") or h_.TableContains(itemO:getTags(), "forge:tools/shields") then
+        shieldBlock = true
+      end
     end
 
     if shieldBlock then
@@ -1219,6 +1031,152 @@ function PrintItemRot()
   print("Left Hand Grip is " .. tostring(GetGripBasedOnHeldItem(true)))
 end
 
+--==========================================================================================
+-- Pings
+--==========================================================================================
+
+function pings.SetAdditionalScale(value)
+  playerAdditionalScale_ = value
+  ScaleModel(playerScale_)
+end
+
+function pings.ScaleModel(value)
+end
+
+--Eye Pings
+----
+function pings.RegularEyes(enabled)
+	--if lizardHead_.Collar then
+	--	lizardHead_.Collar:setVisible(enabled)
+	--end
+
+	regularEyes_ = enabled
+	log(enabled and "[RegularEyes] On" or "[RegularEyes] Off")
+end
+
+function pings.EmmissiveEyes(enabled)
+	--if lizardHead_.Collar then
+	--	lizardHead_.Collar:setVisible(enabled)
+	--end
+	emmissiveEyes_ = enabled
+
+	if lizardHead_.Eyes then
+		lizardHead_.Eyes:setPrimaryRenderType( (enabled) and "EMISSIVE" or "TRANSLUCENT")
+	end
+	
+
+	log("[EmmissiveEyes]", (enabled and "+" or "-").." EmmissiveEyes")
+end
+
+function pings.EffectsEyes(enabled)
+	--if lizardHead_.Collar then
+	--	lizardHead_.Collar:setVisible(enabled)
+	--end
+	eyeEffects_ = enabled
+	log("[EffectsEyes]", (enabled and "+" or "-").." EffectsEyes")
+end
+
+--Scale Pings
+----
+function pings.ModelScaler(val)
+	if val == 0 then
+		playerScale_ = baseModelScale_
+	else
+		playerScale_ = math.clamp(playerScale_ + val, 1, 8)
+	end
+
+	ScaleModel(playerScale_)
+
+	log("[Scaler]", playerScale_)
+end
+
+function pings.EyeHeight(eye) 
+	eyeHeight_ = eye 
+	log(eye and "[Size] Off-Set (WARNING)" or "[EyeHeight] Vanilla")
+end
+
+
+--Item pings
+----
+function pings.spear(spear)
+	local LISpear = lizardItems_.ItemSpear
+
+  --Technically this model has ALL the spears so this must be done
+  LISpear.Explosive:setVisible(spear)
+  LISpear.Base:setVisible(spear)
+  LISpear.Spearmaster:setVisible(false)
+
+	altSpear_ = spear
+	log(spear and "[Spear] On" or "[Spear] Off")
+end
+
+
+--Armor Pings
+----
+function pings.LizardArmor(enabled)
+	lizardArmor_ = enabled
+
+  sounds:playSound("minecraft:item.armor.equip_generic", player:getPos(), 1.5, 0.85)
+
+	log("[LizardArmor]", (enabled and "+" or "-").." LizardArmor")
+end
+
+function pings.LizardBag(enabled)
+	if lizardHead_.Bag then
+		lizardHead_.Bag:setVisible(enabled)
+	end
+
+	lizardBag_ = enabled
+	
+	log("[LizardBag]", (enabled and "+" or "-").." LizardBag")
+end
+
+function pings.LizardCollar(enabled)
+	if lizardHead_.Collar then
+		lizardHead_.Collar:setVisible(enabled)
+	end
+
+	collar_ = enabled
+
+	log("[LizardCollar]", (enabled and "+" or "-").." Collar")
+end
+
+--Other Pings
+----
+
+function pings.Ravenous(enabled)
+	ravenous_ = enabled
+
+	log("[Ravenous]", (enabled and "+" or "-").." Ravenous")
+end
+
+function pings.HungerStare(enabled)
+	hungerStare_ = enabled
+
+	log("[HungerStare]", (enabled and "+" or "-").." HungerStare")
+end
+
+
+function pings.Bite()
+  -- "sound" refers to your sound.ogg file
+  -- player:getPos() makes it play at your current location
+  sounds:playSound("sounds.lizBite2B", player:getPos())
+end
+
+function pings.Charge()
+  -- "sound" refers to your sound.ogg file
+  -- player:getPos() makes it play at your current location
+  local options = {"sounds.lizCharge1E"}
+  local ranOp = math.random(1,#options)
+  sounds:playSound(options[ranOp], player:getPos())
+end
+
+
+--Makes an object visible when Chat is open
+function pings.setChat(bool)
+  --slugcat.FullBody.ComMark:setVisible(bool)
+end
+
 
 --==========================================================================================
 -- Keybinds
@@ -1271,6 +1229,7 @@ function events.tick()
   DroolTick()
   HungerStareTick()
   ManageCrouchingTick()
+  GUIDTick()
 
   weight_.tick()
 end
@@ -1307,7 +1266,7 @@ function events.item_render(item, mode, pos, rot, scale, left)
 end
 
 
---[[
+
 function events.ON_PLAY_SOUND(id, pos, vol, pitch, loop, category, path)
     if not path then return end -- don't trigger if the sound was played by figura (prevent infinite loop)
     if not player:isLoaded() then return end -- don't trigger if the player isn't loaded
@@ -1318,22 +1277,33 @@ function events.ON_PLAY_SOUND(id, pos, vol, pitch, loop, category, path)
     end
     if player:getUUID() ~= uuid or nearest > 0.8 then return end -- don't trigger if the sound isn't near you
 
+    --Replacing sounds here
+    if id:find("item.shield.block") then
+        local distance = (player:getPos() - pos):length()
+        --if distance <= 0.8 then
+        local randomPitch = 1.4 + math.random() * 0.2
+        --sounds:playSound("minecraft:item.chain.break", player:getPos(), 1.0, randomPitch)
+        sounds:playSound("minecraft:item.monster.spawner.break", player:getPos(), 1.0, randomPitch)
+        return true -- Cancel vanilla shield clink
+        --end
+    end
+
     ---------------------------------------------------------
     -- actual replacing starts here, feel free to edit below:
-    if id:find(".step") then                                                  -- if sound id contains ".step"
-        sounds:playSound("minecraft:entity.iron_golem.step", pos, vol, pitch) -- play a custom sound
-        return true                                                           -- stop the actual step sound
-    end
+    --if id:find(".step") then                                                  -- if sound id contains ".step"
+    --    sounds:playSound("minecraft:entity.iron_golem.step", pos, vol, pitch) -- play a custom sound
+    --    return true                                                           -- stop the actual step sound
+    --end
 end
-]]
+
 
 -- Backbone of the commands system, don't edit this
 function events.chat_send_message(msg)
-  return chat_.HandleMessage(msg)
+  --return chat_.HandleMessage(msg)
 end
 
 -- This event runs automatically when you are struck by a source of damage
 function events.damage(amount, source, type)
-  BlockingSoundDamage(amount, source, type)
+  --BlockingSoundDamage(amount, source, type)
 end
 
