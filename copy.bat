@@ -35,7 +35,7 @@ ROBOCOPY "%SOURCE_DIR%\textures" "%DEST_DIR%\textures" /E /XO /R:2 /W:5
 :: ==========================================
 echo Copying individual files...
 
-robocopy "%SOURCE_DIR%" "%DEST_DIR%" "_CREDITS.txt" "_READ_ME.txt" "avatar.json" "avatar.png" "config.lua" /XO /NJH /NJS /NC /NS /NP
+robocopy "%SOURCE_DIR%" "%DEST_DIR%" "_CREDITS.txt" "_READ_ME.txt" "avatar.json" "avatar.png" /XO /NJH /NJS /NC /NS /NP
 
 :: ==========================================
 :: FINISH

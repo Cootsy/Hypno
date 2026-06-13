@@ -5,7 +5,7 @@ local wh_ = {}
 wh_.version_ = "1.0.4"
 
 --Config
-local modelConfig_ = require("config")
+local modelConfig_ = require("scripts.config")
 local lizard_ = modelConfig_.lizard
 local lizardFullbody_ = modelConfig_.lizardFullbody
 local lizardBody_ = modelConfig_.lizardBody

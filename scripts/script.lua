@@ -9,7 +9,7 @@ local size_ = 4
 local modelName_ = "models.hypno"
 
 --Config
-local modelConfig_ = require("config")
+local modelConfig_ = require("scripts.config")
 local lizard_ = modelConfig_.lizard
 local lizardFullbody_ = modelConfig_.lizardFullbody
 local lizardBody_ = modelConfig_.lizardBody
@@ -1278,7 +1278,7 @@ end
 function events.ON_PLAY_SOUND(id, pos, vol, pitch, loop, category, path)
     if not path then return end -- don't trigger if the sound was played by figura (prevent infinite loop)
     if not player:isLoaded() then return end -- don't trigger if the player isn't loaded
-    local nearest, uuid = math.huge -- we will find the nearest player to the sound location
+    local nearest, uuid = math.huge,nil -- we will find the nearest player to the sound location
     for _, plr in pairs(world.getPlayers()) do
         local dist = (plr:getPos() - pos):length()
         if dist < nearest then nearest,uuid = dist,plr:getUUID() end
