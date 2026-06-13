@@ -1118,6 +1118,14 @@ function pings.LizardArmor(enabled)
 
   sounds:playSound("minecraft:item.armor.equip_generic", player:getPos(), 1.5, 0.85)
 
+  --remove all armor visuals
+  if lizardArmor_ == false then
+    for _, armor in ipairs(armors_) do
+      armor.id = nil
+      WearArmor(armor)
+    end
+  end
+
 	log("[LizardArmor]", (enabled and "+" or "-").." LizardArmor")
 end
 
