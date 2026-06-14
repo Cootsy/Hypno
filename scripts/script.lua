@@ -301,6 +301,9 @@ end
 local function TailInit()
   --Make Stomach move
   tailPhysics_.new(lizardBody_.StomachE):setConfig { bounce = 0.25, stiff = 0.4, enableWag = {false} }
+
+  --arrow projectile move
+  tailPhysics_.new(lizard_.Misc.Arrow):setConfig { bounce = 0.25, stiff = 0.4, enableWag = {false} }
 end
 
 local function ChatInit()
@@ -603,26 +606,72 @@ function GUIDTick()
   if currentScreen ~= lastScreen_ then
     if lastScreen_ then
       --end the last screen stuff
-      print("You just closed the " .. lastScreen_ .. " screen!")
+      --print("You just closed the " .. lastScreen_ .. " screen!")
     end
 
     lastScreen_ = currentScreen
 
     --Check if using chat
-    if currentScreen == "minecraft:chat" then
-        print("You are currently typing in chat!")
-          
-        -- Example: Make a "thinking" thought-bubble model part visible
-        -- if models.model.root.ThoughtBubble then
-        --     models.model.root.ThoughtBubble:setVisible(true)
-        -- end
+    if currentScreen and currentScreen:find("ChatScreen")  then
+      print("You are currently typing in chat!")
+        
+      -- Example: Make a "thinking" thought-bubble model part visible
+      if lizardFullbody_.DialogueBox then
+        lizardFullbody_.DialogueBox:setVisible(true)
+        animations[modelName_].dialogue:play()
+      end
 
     else
-        -- Runs when you close the chat box and return to standard movement
-        -- Example: Hide your thinking model part again
-        -- if models.model.root.ThoughtBubble then
-        --     models.model.root.ThoughtBubble:setVisible(false)
-        -- end
+      -- Runs when you close the chat box and return to standard movement
+      -- Example: Hide your thinking model part again
+        if lizardFullbody_.DialogueBox then
+          lizardFullbody_.DialogueBox:setVisible(false)
+          animations[modelName_].dialogue:stop()
+        end
+    end
+
+    --Check if using inventory
+    if currentScreen and currentScreen:find("InventoryScreen")  then
+      print("You are currently typing in your inventory!")
+        
+      -- Example: Make a "thinking" thought-bubble model part visible
+      if lizardBag_ and lizardTail_.Tail2.Tail3.Bag then
+        print("setting parent")
+        -- Snap the weapon directly to the player's right hand group
+        --lizardTail_.Tail2.Tail3.Bag:setParentType("RightItemPivot")
+        -- Optional: Reset position offsets to fit the hand perfectly
+        --lizardTail_.Tail2.Tail3.Bag:setPos(0, 0, 0)
+
+
+
+        -- 1. Get the starting position (the player's feet or head)
+        local startPos = player:getPos() -- Use player:getEyePos() if you want it from eye-level
+
+        -- 2. Get the direction vector the player is looking
+        local lookDirection = player:getLookDir()
+
+        -- 3. Decide how many blocks in front you want to look (e.g., 3 blocks)
+        local distance = 3
+
+        -- 4. Calculate the target position
+        local frontPos = startPos + vec(lookDirection.x, 0, lookDirection.z) * distance
+
+        lizardTail_.Tail2.Tail3.Bag:setParentType("World")
+        lizardTail_.Tail2.Tail3.Bag:setPos(frontPos * 16)
+
+        lizardTail_.Tail2.Tail3.Bag:setRot(0, 0, 0)
+        lizardTail_.Tail2.Tail3.Bag:setScale(playerScale_ * playerAdditionalScale_)
+      end
+
+    else
+      if lizardBag_ and lizardTail_.Tail2.Tail3.Bag then
+        -- Snap the weapon directly to the player's right hand group
+        lizardTail_.Tail2.Tail3.Bag:setParentType("MODEL")
+        -- Optional: Reset position offsets to fit the hand perfectly
+        lizardTail_.Tail2.Tail3.Bag:setPos(0, 0, 0)
+        lizardTail_.Tail2.Tail3.Bag:setRot(0, 0, 0)
+        lizardTail_.Tail2.Tail3.Bag:setScale(1)
+      end
     end
   end
 end
@@ -1130,8 +1179,8 @@ function pings.LizardArmor(enabled)
 end
 
 function pings.LizardBag(enabled)
-	if lizardHead_.Bag then
-		lizardHead_.Bag:setVisible(enabled)
+	if lizardTail_.Tail2.Tail3.Bag then
+		lizardTail_.Tail2.Tail3.Bag:setVisible(enabled)
 	end
 
 	lizardBag_ = enabled
@@ -1286,7 +1335,7 @@ function events.ON_PLAY_SOUND(id, pos, vol, pitch, loop, category, path)
     if player:getUUID() ~= uuid or nearest > 0.8 then return end -- don't trigger if the sound isn't near you
 
     --Replacing sounds here
-    if id:find("item.shield.block") then
+    if id:find("shield") then
         local distance = (player:getPos() - pos):length()
         --if distance <= 0.8 then
         local randomPitch = 1.4 + math.random() * 0.2
@@ -1308,6 +1357,7 @@ end
 -- Backbone of the commands system, don't edit this
 function events.chat_send_message(msg)
   --return chat_.HandleMessage(msg)
+  return msg
 end
 
 -- This event runs automatically when you are struck by a source of damage
