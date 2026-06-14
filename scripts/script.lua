@@ -613,7 +613,7 @@ function GUIDTick()
 
     --Check if using chat
     if currentScreen and currentScreen:find("ChatScreen")  then
-      print("You are currently typing in chat!")
+     -- print("You are currently typing in chat!")
         
       -- Example: Make a "thinking" thought-bubble model part visible
       if lizardFullbody_.DialogueBox then
@@ -632,11 +632,11 @@ function GUIDTick()
 
     --Check if using inventory
     if currentScreen and currentScreen:find("InventoryScreen")  then
-      print("You are currently typing in your inventory!")
+      --print("You are currently typing in your inventory!")
         
       -- Example: Make a "thinking" thought-bubble model part visible
       if lizardBag_ and lizardTail_.Tail2.Tail3.Bag then
-        print("setting parent")
+        --print("setting parent")
         -- Snap the weapon directly to the player's right hand group
         --lizardTail_.Tail2.Tail3.Bag:setParentType("RightItemPivot")
         -- Optional: Reset position offsets to fit the hand perfectly
@@ -895,9 +895,10 @@ end
 local function ArmorTick()
   if lizardArmor_ == false then return end
 
-  for i, armor in ipairs(armors_) do
+  for i, armor in pairs(armors_) do
     local item = player:getItem(armor.slot)
     local enchantStatus = item.hasGlint and item:hasGlint() or (item.tag and item.tag.Enchantments ~= nil)
+    --print(tostring(i) .. tostring(enchantStatus))
     if armor.id == item.id and armor.enchanted == enchantStatus then 
       --this armor piece has not changed since last tick, so do nothing
     else
@@ -1169,7 +1170,7 @@ function pings.LizardArmor(enabled)
 
   --remove all armor visuals
   if lizardArmor_ == false then
-    for _, armor in ipairs(armors_) do
+    for _, armor in pairs(armors_) do
       armor.id = nil
       WearArmor(armor)
     end
