@@ -279,7 +279,7 @@ end
 
 
 
-function shakeCamera(duration, intensity)
+local function shakeCamera(duration, intensity)
   if (macro) then
     cameraShakeDuration = duration * 6
     cameraShakeMaxDuration = duration * 6
@@ -390,6 +390,51 @@ end
 --Sound Functions
 --==========================================================================================
 
+
+
+local function playGurgleSound()
+  if (macro) then
+    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 0.5 - math.random() * 0.1, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
+
+    if (cameraShakeDuration <= 4 or cameraShakeIntensity <= 0.05) then
+      shakeCamera(320, 0.01)
+    end
+  else
+    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 1 - math.random() * 0.2, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
+
+    if (weight_ >= 0.9) then
+      shakeCamera(160, weight_ * 0.06)
+    end
+  end
+end
+
+local function playSloshSound()
+    if (macro) then
+        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.15, 0.05, false):setAttenuation(8 * attenuationModifier)
+    end
+    sounds:playSound("slosh_" .. math.random(0, 1), player:getPos(), (0.1 + weight_ * 0.4), (1.0 - weight_ * 0.5) - math.random() * 0.15, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
+
+    if (weight_ >= 0.9) then
+        shakeCamera(80, weight_ * 0.1)
+    end
+end
+
+local function playHungrySound()
+    sounds:playSound("sounds.hungry_" .. math.random(0, 0), player:getPos(), 0.65, 1 - math.random() * 0.25, false)
+end
+
+local function playBurpSound()
+    if (macro) then
+        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.9, 0.5 - math.random() * 0.15, false):setAttenuation(8 * attenuationModifier)
+    else
+        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.7, (1 - weight_ * 0.25) - math.random() * 0.15, false):setAttenuation((6 + weightVariant_.level * 2) * attenuationModifier)
+    end
+
+    if (weight_ >= 0.9) then
+        shakeCamera(160, weight_ * 0.1)
+    end
+end
+
 -- Plays sound effects where appropriate
 local function updateSounds()
   -- Gurgle sounds
@@ -428,49 +473,6 @@ local function updateSounds()
   else
      hungrySoundTimer = 0
   end
-end
-
-function playGurgleSound()
-  if (macro) then
-    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 0.5 - math.random() * 0.1, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
-
-    if (cameraShakeDuration <= 4 or cameraShakeIntensity <= 0.05) then
-      shakeCamera(320, 0.01)
-    end
-  else
-    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 1 - math.random() * 0.2, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
-
-    if (weight_ >= 0.9) then
-      shakeCamera(160, weight_ * 0.06)
-    end
-  end
-end
-
-function playSloshSound()
-    if (macro) then
-        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.15, 0.05, false):setAttenuation(8 * attenuationModifier)
-    end
-    sounds:playSound("slosh_" .. math.random(0, 1), player:getPos(), (0.1 + weight_ * 0.4), (1.0 - weight_ * 0.5) - math.random() * 0.15, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
-
-    if (weight_ >= 0.9) then
-        shakeCamera(80, weight_ * 0.1)
-    end
-end
-
-function playHungrySound()
-    sounds:playSound("sounds.hungry_" .. math.random(0, 0), player:getPos(), 0.65, 1 - math.random() * 0.25, false)
-end
-
-function playBurpSound()
-    if (macro) then
-        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.9, 0.5 - math.random() * 0.15, false):setAttenuation(8 * attenuationModifier)
-    else
-        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.7, (1 - weight_ * 0.25) - math.random() * 0.15, false):setAttenuation((6 + weightVariant_.level * 2) * attenuationModifier)
-    end
-
-    if (weight_ >= 0.9) then
-        shakeCamera(160, weight_ * 0.1)
-    end
 end
 
 

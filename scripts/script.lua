@@ -332,7 +332,9 @@ local function ModelInit()
   -- Set the model's root rotation to be not allowed. Rotations are now manual
   renderer:setRootRotationAllowed(false)
 
-
+  nameplate.CHAT:setText('{"text" : "Coo", "color" : "White"}')
+  nameplate.ENTITY:setText('{"text" : "Enigma", "color" : "Orange"}')
+  nameplate.LIST:setText('{"text" : "Coo", "color" : "White"}')
 end
 
 function ScaleModel(newScale)
@@ -920,20 +922,14 @@ local function CollarTick()
 	end
 end
 
-local function ItemRenderer(item, mode, pos, rot, scale, lefty)
-	--Check that items exist
-	if lizard_.Items == nil then return end
-
-	if item.id == "minecraft:trident" then
-
-
-		local enchants = item:hasGlint()
+local function ItemTridentLogic(item, lefty)
+  local enchants = item:hasGlint()
 		--print(enchants)
-		lizard_.Items.ItemSpear.Explosive.ExplosiveTop:setSecondaryRenderType((enchants) and "GLINT" or "NONE")
-		lizard_.Items.ItemSpear.Explosive.Explosive1:setSecondaryRenderType((enchants) and "GLINT" or "NONE")
-		lizard_.Items.ItemSpear.Explosive.Explosive1.Explosive2:setSecondaryRenderType((enchants) and "GLINT" or "NONE")
-		lizard_.Items.ItemSpear.Explosive.Explosive1.Explosive2.Explosive3:setSecondaryRenderType((enchants) and "GLINT" or "NONE")
-		lizard_.Items.ItemSpear.Explosive.Explosive1.Explosive2.Explosive3.Explosive4:setSecondaryRenderType((enchants) and "GLINT" or "NONE")
+		lizard_.Items.ItemSpear.Explosive.ExplosiveTop:setSecondaryRenderType((enchants) and "GLINT2" or "NONE")
+		lizard_.Items.ItemSpear.Explosive.Explosive1:setSecondaryRenderType((enchants) and "GLINT2" or "NONE")
+		lizard_.Items.ItemSpear.Explosive.Explosive1.Explosive2:setSecondaryRenderType((enchants) and "GLINT2" or "NONE")
+		lizard_.Items.ItemSpear.Explosive.Explosive1.Explosive2.Explosive3:setSecondaryRenderType((enchants) and "GLINT2" or "NONE")
+		lizard_.Items.ItemSpear.Explosive.Explosive1.Explosive2.Explosive3.Explosive4:setSecondaryRenderType((enchants) and "GLINT2" or "NONE")
 
 		local red = vectors.hexToRGB("#fe0108")
 		local purple = vectors.hexToRGB("#836bcf")
@@ -958,8 +954,14 @@ local function ItemRenderer(item, mode, pos, rot, scale, lefty)
 		else
 			return lizard_.Items.ItemSpear:setPos(0.25,0,0)
 		end
+end
 
-		
+local function ItemRenderer(item, mode, pos, rot, scale, lefty)
+	--Check that items exist
+	if lizard_.Items == nil then return end
+
+	if item.id == "minecraft:trident" then
+    return ItemTridentLogic(item, lefty)
 	end
 
 	--[[
@@ -1341,7 +1343,7 @@ function events.ON_PLAY_SOUND(id, pos, vol, pitch, loop, category, path)
         --if distance <= 0.8 then
         local randomPitch = 1.4 + math.random() * 0.2
         --sounds:playSound("minecraft:item.chain.break", player:getPos(), 1.0, randomPitch)
-        sounds:playSound("minecraft:item.monster.spawner.break", player:getPos(), 1.0, randomPitch)
+        sounds:playSound("minecraft:block.spawner.break", player:getPos(), 1.0, randomPitch)
         return true -- Cancel vanilla shield clink
         --end
     end
