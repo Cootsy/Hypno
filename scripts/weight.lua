@@ -1,3 +1,5 @@
+--Removes the warning from sound attenuationtion
+---@diagnostic disable: undefined-field
 --==========================================================================================
 -- Weight Related
 -- Weight gain script by SyntaxScales
@@ -25,39 +27,39 @@ local ch_ = require("scripts.chat")
 
 --Weight Vars
 --------------
-local syncPingTimer = 0   -- Used to sync the weight variables with players that joined a server and haven't gotten pinged yet
+local syncPingTimer_ = 0   -- Used to sync the weight variables with players that joined a server and haven't gotten pinged yet
 
 -- Weight variables
 local weight_ = 0          -- Weight is stored as a float from 0 to 1. 0 is minimum weight, while 1 is maximum
 local weightVariant_ = {level = 0, minWeight = 0}  -- Determines which set of manually-designed fat parts get toggled
-local macro = false       -- Fun feature
-local preGUIScale = nil
+local macro_ = false       -- Fun feature
+local preGUIScale_ = nil
 
 -- Eating variables
-local prevFood = 0
-local prevSaturation = 0
+local prevFood_ = 0
+local prevSaturation_ = 0
 
-local weightPerHungerPoint = 0.002 -- Modify this if you want to increase/decrease the amount gained by eating, currently sat to 0, so it's disabled. Use your emote wheel in figura to gain for now.
+local weightPerHungerPoint_ = 0.002 -- Modify this if you want to increase/decrease the amount gained by eating
 
 -- Effect variables
-local cameraShakeDuration = 0
-local cameraShakeMaxDuration = 0
-local cameraShakeIntensity = 0
-local cameraShakeUpdateTicker = 0 -- Used by receivers to detect updates to screen shake
+local cameraShakeDuration_ = 0
+local cameraShakeMaxDuration_ = 0
+local cameraShakeIntensity_ = 0
+local cameraShakeUpdateTicker_ = 0 -- Used by receivers to detect updates to screen shake
 
-local cameraShakeReceiverTable = {}
+local cameraShakeReceiverTable_ = {}
 
-local timeNotGrounded = 0 -- Used to shake grouond after certain number of ticks
-local stepTime = 0
-local wasSleeping = false
+local timeNotGrounded_ = 0 -- Used to shake grouond after certain number of ticks
+local stepTime_ = 0
+local wasSleeping_ = false
 
 -- Mitsi note: I haven't messed with sounds yet, although I'm 100% sure Soft will want to have everyone hear their gurgly gut :RivOwO:
 -- Sound variables
-local gurgleSoundTimer = 0
-local sloshSoundTimer = 0
-local prevYaw = 0
-local hungrySoundTimer = 0
-local attenuationModifier = 1 -- Modifies distance from which all sounds can be heard
+local gurgleSoundTimer_ = 0
+local sloshSoundTimer_ = 0
+local prevYaw_ = 0
+local hungrySoundTimer_ = 0
+local attenuationModifier_ = 1 -- Modifies distance from which all sounds can be heard
 
 --The different weights and how much food needs to be eaten for each
 local weightVariants_ = 
@@ -70,8 +72,7 @@ local weightVariants_ =
 }
 
 
---Removes the warning from sound attenuationtion
----@diagnostic disable: undefined-field
+
 
 
 --==========================================================================================
@@ -79,10 +80,14 @@ local weightVariants_ =
 --==========================================================================================
 
 local function receiverUpdate()
+  local selfUUUID = avatar:getUUID()
+
   -- First, iterate through every player in the world, stored in the variable v
   for k, v in pairs(world:getPlayers()) do
-    -- Then, check to ensure the user is not receiving their own camera shake. This is only really necessary if this function is in the WG script
-    if (not (v:getUUID() == avatar:getUUID())) then
+    local playerUUID = v:getUUID()
+
+    -- Do not grab own camera shake info
+    if (not (playerUUID == selfUUUID)) then
       -- Get camera shake information from the avatar's stored variables
       local shakeDuration = v:getVariable("cameraShakeDuration")
       local shakeMaxDuration = v:getVariable("cameraShakeMaxDuration")
@@ -91,7 +96,7 @@ local function receiverUpdate()
       --[[
       The shake intensity or shake duration is not updated every frame. Therefore,
       a separate variable is needed to detect when a change to the camera shake state has occured.
-      This value is compared with the value stored in the cameraShakeReceiverTable using the player's UUID.
+      This value is compared with the value stored in the cameraShakeReceiverTable_ using the player's UUID.
       If the values don't match, that means a new camera shake occured.
       Then, after that is checked, it updates the table to contain the new value
       --]]
@@ -100,16 +105,24 @@ local function receiverUpdate()
       -- Make sure that the camera shake information was actually found. If not, the user is not wearing a WG avatar
       if (not (shakeDuration == nil or shakeMaxDuration == nil or shakeIntensity == nil or shakeUpdateTicker == nil)) then
         -- If the viewer is too far away, don't shake
-        if ((player:getPos() - v:getPos()):length() <= shakeIntensity * 1200) then
+        local distance = (player:getPos() - v:getPos()):length()
+        local maxRange = shakeIntensity * 1200
+        if (distance <= maxRange) then
+
           -- If there has been an update (meaning a new screen shake was sent)
-          if (not (cameraShakeReceiverTable[v:getUUID()] == nil or shakeUpdateTicker == cameraShakeReceiverTable[v:getUUID()])) then
-            cameraShakeDuration = shakeDuration
-            cameraShakeMaxDuration = shakeMaxDuration
-            cameraShakeIntensity = shakeIntensity
+          if (not (cameraShakeReceiverTable_[v:getUUID()] == nil or shakeUpdateTicker == cameraShakeReceiverTable_[v:getUUID()])) then
+            cameraShakeDuration_ = shakeDuration
+            cameraShakeMaxDuration_ = shakeMaxDuration
+            
+            --scale the intensity based on distance
+            local normalizedDistance = math.clamp(distance / maxRange, 0, 1)
+            local exponent = 1.5 -- Tweak this value to change the curve's sharpness
+            local curve = 1 - math.pow(normalizedDistance, exponent)
+            cameraShakeIntensity_ = shakeIntensity * curve
           end
         end
 
-        cameraShakeReceiverTable[v:getUUID()] = shakeUpdateTicker
+        cameraShakeReceiverTable_[v:getUUID()] = shakeUpdateTicker
       end
     end
   end
@@ -237,7 +250,7 @@ function UpdateModelScales()
 
   local reducedScale = math.min(1, 1 / (finalScale * 0.75) )
 
-  if (macro) then
+  if (macro_) then
     finalScale = finalScale * 2
     reducedScale = math.min(1, 1 / (finalScale * 0.75) )
   end
@@ -249,29 +262,31 @@ function UpdateModelScales()
   lizardHead_:setScale(reducedScale)
 
   --adjust head if need be
-  if (macro) then
+  if (macro_) then
       lizardHead_:setPos(0, (finalScale - 1) * 0.06, 0)
   else
      lizardHead_:setPos(0, (finalScale - 1) * 0.1, 0)
   end
-  --models.model.HeadW3:setScale(models.model.Head:getScale()) -------------------------------- MODIFY HERE TO ADJUST HEAD/ARM DE-SCALING AT HUGE SIZES (Mitsi note:This is for your fat face cheeks, so they dont scale to hard while you get massive.
+
+  -------------------------------- MODIFY HERE TO ADJUST HEAD/ARM DE-SCALING AT HUGE SIZES (Mitsi note:This is for your fat face cheeks, so they dont scale to hard while you get massive.
   --  models.model.HeadW3:setPos(models.model.Head:getPos())
+  --models.model.HeadW3:setScale(models.model.Head:getScale()) 
   --  models.model.LeftArmW4.LeftHandW4:setScale(1 / scale * reducedScale)
   --  models.model.RightArmW4.RightHandW4:setScale(1 / scale * reducedScale) -- We shouldnt need these yet, so I disabled them for you guys for now - Mitsi
 end
 
 -- Make big \\\\ not needed for now -Mitsi
 local function setMacro(value)
-  if (macro == value) then
+  if (macro_ == value) then
     return
   end
-  macro = value
+  macro_ = value
 
-  if (macro) then
-    attenuationModifier = 16
-    gurgleSoundTimer = 0
+  if (macro_) then
+    attenuationModifier_ = 16
+    gurgleSoundTimer_ = 0
   else
-    attenuationModifier = 1
+    attenuationModifier_ = 1
   end
 end
 
@@ -280,34 +295,34 @@ end
 
 
 local function shakeCamera(duration, intensity)
-  if (macro) then
-    cameraShakeDuration = duration * 6
-    cameraShakeMaxDuration = duration * 6
-    cameraShakeIntensity = intensity * 8
+  if (macro_) then
+    cameraShakeDuration_ = duration * 6
+    cameraShakeMaxDuration_ = duration * 6
+    cameraShakeIntensity_ = intensity * 8
   else
-    cameraShakeDuration = duration
-    cameraShakeMaxDuration = duration
-    cameraShakeIntensity = intensity
+    cameraShakeDuration_ = duration
+    cameraShakeMaxDuration_ = duration
+    cameraShakeIntensity_ = intensity
   end
 
   -- Store so receivers can have their screen shaken
-  avatar:store("cameraShakeDuration", cameraShakeDuration)
-  avatar:store("cameraShakeMaxDuration", cameraShakeMaxDuration)
-  avatar:store("cameraShakeIntensity", cameraShakeIntensity)
-  cameraShakeUpdateTicker = cameraShakeUpdateTicker + 1
-  avatar:store("cameraShakeUpdateTicker", cameraShakeUpdateTicker)
+  avatar:store("cameraShakeDuration", cameraShakeDuration_)
+  avatar:store("cameraShakeMaxDuration", cameraShakeMaxDuration_)
+  avatar:store("cameraShakeIntensity", cameraShakeIntensity_)
+  cameraShakeUpdateTicker_ = cameraShakeUpdateTicker_ + 1
+  avatar:store("cameraShakeUpdateTicker", cameraShakeUpdateTicker_)
 end
 
 -- Sound for stepping while extremely large
 local function stepEffects()
     sounds:playSound("block.stone.hit", player:getPos(), 0.5, 0.3 - math.random() * 0.1, false)
-    :setAttenuation(4 * attenuationModifier)
-    if (macro) then
+    :setAttenuation(4 * attenuationModifier_)
+    if (macro_) then
       sound = sounds:playSound("entity.zombie.attack_wooden_door", player:getPos(), 0.1, 0.3, false)
-      sound:setAttenuation(6 * attenuationModifier)
+      sound:setAttenuation(6 * attenuationModifier_)
     end
     
-    if (cameraShakeDuration <= 4 or cameraShakeIntensity <= 0.05) then
+    if (cameraShakeDuration_ <= 4 or cameraShakeIntensity_ <= 0.05) then
       shakeCamera(16, 0.05)
     end
 end
@@ -315,14 +330,14 @@ end
 -- Sound for landing after a jump while extremely large
 local function jumpEffects()
     sounds:playSound("entity.generic.small_fall", player:getPos(), 0.4, 0.15, false)
-    :setAttenuation(4 * attenuationModifier)
+    :setAttenuation(4 * attenuationModifier_)
     if (weight_ >= 0.9) then
         sounds:playSound("entity.zombie.attack_wooden_door", player:getPos(), 0.15, 0.4, false)
-        :setAttenuation(4 * attenuationModifier)
+        :setAttenuation(4 * attenuationModifier_)
     end
-    if (macro) then
+    if (macro_) then
         sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.15, 0.15, false)
-        :setAttenuation(8 * attenuationModifier)
+        :setAttenuation(8 * attenuationModifier_)
     end
 
     shakeCamera(16, weight_ * 0.3)
@@ -331,17 +346,17 @@ end
 -- Ground slam for landing while extremely large
 local function groundSlamEffects()
     sounds:playSound("entity.generic.small_fall", player:getPos(), 1, 0.15, false)
-    :setAttenuation(6 * attenuationModifier)
+    :setAttenuation(6 * attenuationModifier_)
     if (weight_ >= 0.9) then
         sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.5, 0.3, false)
-        :setAttenuation(8 * attenuationModifier)
+        :setAttenuation(8 * attenuationModifier_)
         sounds:playSound("entity.generic.explode", player:getPos(), 0.4, 0.35, false)
-        :setAttenuation(8 * attenuationModifier)
+        :setAttenuation(8 * attenuationModifier_)
     else
-        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.25, 0.5, false):setAttenuation(6 * attenuationModifier)
+        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.25, 0.5, false):setAttenuation(6 * attenuationModifier_)
     end
-    if (macro) then
-        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.25, 0.05, false):setAttenuation(8 * attenuationModifier)
+    if (macro_) then
+        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.25, 0.05, false):setAttenuation(8 * attenuationModifier_)
     end
 
     
@@ -360,12 +375,12 @@ end
 local function waterSlamEffects()
     if (weight_ >= 0.9) then
         sounds:playSound("entity.player.splash.high_speed", player:getPos(), 0.5, 0.4, false)
-        :setAttenuation(8 * attenuationModifier)
+        :setAttenuation(8 * attenuationModifier_)
         sounds:playSound("entity.generic.explode", player:getPos(), 0.4, 0.35, false)
-        :setAttenuation(8 * attenuationModifier)
+        :setAttenuation(8 * attenuationModifier_)
     else
         sounds:playSound("entity.player.splash.high_speed", player:getPos(), 0.5, 0.75, false)
-        :setAttenuation(6 * attenuationModifier)
+        :setAttenuation(6 * attenuationModifier_)
     end
 
     -- Create water particles
@@ -393,14 +408,16 @@ end
 
 
 local function playGurgleSound()
-  if (macro) then
-    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 0.5 - math.random() * 0.1, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
+  if (macro_) then
+    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 0.5 - math.random() * 0.1, false)
+    :setAttenuation((4 + weightVariant_.level) * attenuationModifier_)
 
-    if (cameraShakeDuration <= 4 or cameraShakeIntensity <= 0.05) then
+    if (cameraShakeDuration_ <= 4 or cameraShakeIntensity_ <= 0.05) then
       shakeCamera(320, 0.01)
     end
   else
-    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 1 - math.random() * 0.2, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
+    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 1 - math.random() * 0.2, false)
+    :setAttenuation((4 + weightVariant_.level) * attenuationModifier_)
 
     if (weight_ >= 0.9) then
       shakeCamera(160, weight_ * 0.06)
@@ -409,10 +426,12 @@ local function playGurgleSound()
 end
 
 local function playSloshSound()
-    if (macro) then
-        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.15, 0.05, false):setAttenuation(8 * attenuationModifier)
+    if (macro_) then
+        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.15, 0.05, false)
+        :setAttenuation(8 * attenuationModifier_)
     end
-    sounds:playSound("slosh_" .. math.random(0, 1), player:getPos(), (0.1 + weight_ * 0.4), (1.0 - weight_ * 0.5) - math.random() * 0.15, false):setAttenuation((4 + weightVariant_.level) * attenuationModifier)
+    sounds:playSound("slosh_" .. math.random(0, 1), player:getPos(), (0.1 + weight_ * 0.4), (1.0 - weight_ * 0.5) - math.random() * 0.15, false)
+    :setAttenuation((4 + weightVariant_.level) * attenuationModifier_)
 
     if (weight_ >= 0.9) then
         shakeCamera(80, weight_ * 0.1)
@@ -424,10 +443,12 @@ local function playHungrySound()
 end
 
 local function playBurpSound()
-    if (macro) then
-        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.9, 0.5 - math.random() * 0.15, false):setAttenuation(8 * attenuationModifier)
+    if (macro_) then
+        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.9, 0.5 - math.random() * 0.15, false)
+        :setAttenuation(8 * attenuationModifier_)
     else
-        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.7, (1 - weight_ * 0.25) - math.random() * 0.15, false):setAttenuation((6 + weightVariant_.level * 2) * attenuationModifier)
+        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.7, (1 - weight_ * 0.25) - math.random() * 0.15, false)
+        :setAttenuation((6 + weightVariant_.level * 2) * attenuationModifier_)
     end
 
     if (weight_ >= 0.9) then
@@ -439,11 +460,11 @@ end
 local function updateSounds()
   -- Gurgle sounds
   if (weightVariant_.level >= 3) then
-    gurgleSoundTimer = gurgleSoundTimer - 1
-    if (gurgleSoundTimer <= 0) then
-      gurgleSoundTimer = math.random(1100, 1300) - (weightVariant_.level - 3) * 800
-      if (macro) then
-         gurgleSoundTimer = 160
+    gurgleSoundTimer_ = gurgleSoundTimer_ - 1
+    if (gurgleSoundTimer_ <= 0) then
+      gurgleSoundTimer_ = math.random(1100, 1300) - (weightVariant_.level - 3) * 800
+      if (macro_) then
+         gurgleSoundTimer_ = 160
       end
       playGurgleSound()
     end
@@ -451,27 +472,27 @@ local function updateSounds()
 
   -- Slosh sounds
   local minYaw = 48
-  if (macro) then
+  if (macro_) then
      minYaw = 12
   end
   if (weightVariant_.level >= 2) then
-    sloshSoundTimer = sloshSoundTimer - 1
-    if (sloshSoundTimer <= 0 and math.abs(player:getBodyYaw() - prevYaw) > minYaw) then
-      sloshSoundTimer = 6
+    sloshSoundTimer_ = sloshSoundTimer_ - 1
+    if (sloshSoundTimer_ <= 0 and math.abs(player:getBodyYaw() - prevYaw_) > minYaw) then
+      sloshSoundTimer_ = 6
       playSloshSound()
     end
   end
-  prevYaw = player:getBodyYaw()
+  prevYaw_ = player:getBodyYaw()
 
   -- Hungry sounds (occur more frequently the bigger the weight)
-  if (prevFood <= (6 + weightVariant_.level) and not (player:getGamemode() == "CREATIVE")) then
-    hungrySoundTimer = hungrySoundTimer - 1
-    if (hungrySoundTimer <= 0) then
-      hungrySoundTimer = math.random(150, 300)
+  if (prevFood_ <= (6 + weightVariant_.level) and not (player:getGamemode() == "CREATIVE")) then
+    hungrySoundTimer_ = hungrySoundTimer_ - 1
+    if (hungrySoundTimer_ <= 0) then
+      hungrySoundTimer_ = math.random(150, 300)
       playHungrySound()
     end
   else
-     hungrySoundTimer = 0
+     hungrySoundTimer_ = 0
   end
 end
 
@@ -492,7 +513,7 @@ end
 function pings.setMacro(value)
   setMacro(value)
   sounds:playSound("minecraft:entity.squid.ambient", player:getPos(), 1.5, 0.85)
-  :setAttenuation(6 * attenuationModifier)
+  :setAttenuation(6 * attenuationModifier_)
   --sounds:playSound("entity.player.burp", player:getPos(), 1, 1, false)
   shakeCamera(0, 0)
 
@@ -513,10 +534,10 @@ function pings.ChangeWeight(val)
   setWeight(weight_ + 0.05 * val)
   if val > 0 then
     sounds:playSound("minecraft:entity.panda.eat", player:getPos(), 2, 1, false)
-    :setAttenuation(6 * attenuationModifier)
+    :setAttenuation(6 * attenuationModifier_)
   else
     sounds:playSound("minecraft:entity.boat.paddle_water", player:getPos(), 2, 1, false)
-    :setAttenuation(6 * attenuationModifier)
+    :setAttenuation(6 * attenuationModifier_)
   end
 
   log("Weight is now " .. weight_)
@@ -525,7 +546,7 @@ end
 function pings.ResetWeight()
   setWeight(0)
   sounds:playSound("minecraft:entity.skeleton.ambient", player:getPos(), 2, 2, false)
-  :setAttenuation(6 * attenuationModifier)
+  :setAttenuation(6 * attenuationModifier_)
   shakeCamera(0, 0)
   log("Weight reset to 0")
 end
@@ -551,21 +572,21 @@ function we_.Init()
 
 
   -- Initialize default eating values
-  prevFood = player:getFood()
-  prevSaturation = player:getSaturation()
+  prevFood_ = player:getFood()
+  prevSaturation_ = player:getSaturation()
 
   -- Initialize sound update values
-  prevYaw = player:getBodyYaw()
+  prevYaw_ = player:getBodyYaw()
 
   -- Initialize default weight
   setWeightVariant(weightVariants_[1])
 end
 
 function we_.tick() 
-  syncPingTimer = syncPingTimer + 1
-  if (syncPingTimer >= 80) then
-      pings.SyncPing(weight_, macro)
-      syncPingTimer = 0
+  syncPingTimer_ = syncPingTimer_ + 1
+  if (syncPingTimer_ >= 80) then
+      pings.SyncPing(weight_, macro_)
+      syncPingTimer_ = 0
   end
 
 
@@ -583,55 +604,55 @@ function we_.tick()
   end
 
   -- Gain weight through food consumption (I might modify some of this later to make absorption hearts a bit silly, no clue how we'll update the scripts yet tho. -Mitsi)
-  if (player:getFood() > prevFood or player:getSaturation() > prevSaturation) then
-    local amount = player:getFood() - prevFood + player:getSaturation() - prevSaturation -- Get number of points increased
+  if (player:getFood() > prevFood_ or player:getSaturation() > prevSaturation_) then
+    local amount = player:getFood() - prevFood_ + player:getSaturation() - prevSaturation_ -- Get number of points increased
     if (host:isHost()) then
-       setWeight(weight_ + amount * weightPerHungerPoint) -- Weight gain speed per hunger notch
+       setWeight(weight_ + amount * weightPerHungerPoint_) -- Weight gain speed per hunger notch
     end
     if (player:getFood() >= 20 and weightVariant_.level >= 1) then
       playBurpSound() -- Burp after topping off hunger
     end
   end
-  prevFood = player:getFood()
-  prevSaturation = player:getSaturation()
+  prevFood_ = player:getFood()
+  prevSaturation_ = player:getSaturation()
 
   -- Cancel the fall time and play a water splash if landing in water Mitsinote: I might switch "weightVariant" to just your weight value, just for funsies
   if (player:isInWater()) then
-    if (timeNotGrounded > 10 and weightVariant_.level >= 3) then
+    if (timeNotGrounded_ > 10 and weightVariant_.level >= 3) then
       waterSlamEffects()
     end
-    timeNotGrounded = 0
+    timeNotGrounded_ = 0
   end
 
   -- Play jump/ground slam effect if not grounded after a moment (Mitsi note: this one literally uses weight instead of stages...)
   if (not player:isOnGround()) then
-     timeNotGrounded = timeNotGrounded + 1
+     timeNotGrounded_ = timeNotGrounded_ + 1
   else
-    if (timeNotGrounded > 20 and weight_ >= 0.65) then
+    if (timeNotGrounded_ > 20 and weight_ >= 0.65) then
       groundSlamEffects()
-    elseif (timeNotGrounded > 9 and weight_ >= 0.65) then
+    elseif (timeNotGrounded_ > 9 and weight_ >= 0.65) then
        jumpEffects()
     end
-    timeNotGrounded = 0
+    timeNotGrounded_ = 0
   end
 
   -- Use a timer to determine step sound times
   if (player:isOnGround()) then
-      stepTime = stepTime + player:getVelocity():length()
+      stepTime_ = stepTime_ + player:getVelocity():length()
   end
-  if (stepTime >= 1.625) then
-      stepTime = stepTime % 1.625
+  if (stepTime_ >= 1.625) then
+      stepTime_ = stepTime_ % 1.625
       if (weight_ >= 0.65) then
           stepEffects()
       end
   end
 
   -- Play bed creak sound
-  if ((player:getPose() == "SLEEPING" and not wasSleeping) and weightVariant_.level >= 4) then
+  if ((player:getPose() == "SLEEPING" and not wasSleeping_) and weightVariant_.level >= 4) then
     sounds:playSound("block.stem.place", player:getPos(), 1, 0.3, false)
     sounds:playSound("block.stem.fall", player:getPos(), 1, 0.2, false)
   end
-  wasSleeping = player:getPose() == "SLEEPING"
+  wasSleeping_ = player:getPose() == "SLEEPING"
 
   updateSounds()
 
@@ -642,7 +663,8 @@ end
 function we_.render(delta, context)
   -- Reduce arm movement strength while fat. Makes the arms feel weightier
   local rot = vanilla_model.LEFT_ARM:getOriginRot()
-  --   models.model.LeftArmW3:setOffsetRot(-rot * 0.25) -------------------------------- MODIFY HERE TO REDUCE THE MAGNITUDE OF ARM SWING MOVEMENT WHILE FAT (same part rules apply)  --------------------------------
+  -------------------------------- MODIFY HERE TO REDUCE THE MAGNITUDE OF ARM SWING MOVEMENT WHILE FAT (same part rules apply)  --------------------------------
+  --   models.model.LeftArmW3:setOffsetRot(-rot * 0.25) 
   --   models.model.LeftArmW4:setOffsetRot(-rot * 0.5)
 
   rot = vanilla_model.RIGHT_ARM:getOriginRot()
@@ -650,7 +672,8 @@ function we_.render(delta, context)
   -- models.model.RightArmW4:setOffsetRot(-rot * 0.5)
 
   -- Reduce leg movement strength while fat. Makes the legs clip less and feel weightier
-  rot = vanilla_model.LEFT_LEG:getOriginRot() -------------------------------- MODIFY HERE TO REDUCE THE MAGNITUDE OF LEG SWING MOVEMENT WHILE FAT (same part rules apply) --------------------------------
+  rot = vanilla_model.LEFT_LEG:getOriginRot() 
+  -------------------------------- MODIFY HERE TO REDUCE THE MAGNITUDE OF LEG SWING MOVEMENT WHILE FAT (same part rules apply) --------------------------------
   --models.model.LeftLeg:setOffsetRot(-rot * 0.4) 
   --  models.model.LeftLegW1:setOffsetRot(-rot * 0.4)
   -- models.model.LeftLegW2:setOffsetRot(-rot * 0.7)
@@ -665,13 +688,13 @@ function we_.render(delta, context)
   --   models.model.RightLegW4:setOffsetRot(-rot * 0.9)
 
   -- Shake the camera (Mitsi note: I'll look into this later)
-  if (cameraShakeDuration > 0) then
-    cameraShakeDuration = cameraShakeDuration - delta
-    if (cameraShakeDuration < 0) then
-        cameraShakeDuration = 0
+  if (cameraShakeDuration_ > 0) then
+    cameraShakeDuration_ = cameraShakeDuration_ - delta
+    if (cameraShakeDuration_ < 0) then
+        cameraShakeDuration_ = 0
     end
-    local percent = cameraShakeDuration / cameraShakeMaxDuration
-    renderer:setOffsetCameraPivot(math.random() * cameraShakeIntensity * percent, math.random() * cameraShakeIntensity * percent, math.random() * cameraShakeIntensity * percent)
+    local percent = cameraShakeDuration_ / cameraShakeMaxDuration_
+    renderer:setOffsetCameraPivot(math.random() * cameraShakeIntensity_ * percent, math.random() * cameraShakeIntensity_ * percent, math.random() * cameraShakeIntensity_ * percent)
   else
     renderer:setOffsetCameraPivot(0, 0, 0) -- Reset the camera when not shaking any more
   end
@@ -685,7 +708,7 @@ function we_.render(delta, context)
 
   -- Render inventory GUI model smaller to fit
   if (context == "MINECRAFT_GUI") then
-    preGUIScale = lizard_:getScale()
+    preGUIScale_ = lizard_:getScale()
     if (weightVariant_.level == 3) then
       lizard_:setScale(0.75 * 4)
     elseif (weightVariant_.level == 4) then
@@ -697,7 +720,7 @@ end
 function we_.post_render(delta, context)
   -- Reset model size after GUI scaling
   if (context == "MINECRAFT_GUI") then
-    lizard_:setScale(preGUIScale)
+    lizard_:setScale(preGUIScale_)
   end
 end
 
