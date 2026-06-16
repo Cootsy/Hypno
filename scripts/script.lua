@@ -586,7 +586,7 @@ function TriggerRavenous()
 end
 
 --==========================================================================================
--- Chat Triggers
+-- Chat and GUI Triggers
 --==========================================================================================
 
 --Checks if the Chat is open
@@ -684,7 +684,7 @@ end
 
 function ItemTick()
   --vanilla_model.HELD_ITEMS:setVisible(false)
-  ColorByHunger()
+  --ColorByHunger()
   AlterGrip()
   EatingCheck()
   FullEat()
@@ -1291,7 +1291,7 @@ function events.tick()
   ManageCrouchingTick()
   GUIDTick()
 
-  weight_.tick()
+  weight_.Tick()
 end
 
 --render event, called every time your avatar is rendered

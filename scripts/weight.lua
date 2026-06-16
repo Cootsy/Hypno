@@ -79,7 +79,7 @@ local weightVariants_ =
 -- Retriever Functions
 --==========================================================================================
 
-local function receiverUpdate()
+local function ReceiverUpdateTick()
   local selfUUUID = avatar:getUUID()
 
   -- First, iterate through every player in the world, stored in the variable v
@@ -113,7 +113,7 @@ local function receiverUpdate()
           if (not (cameraShakeReceiverTable_[v:getUUID()] == nil or shakeUpdateTicker == cameraShakeReceiverTable_[v:getUUID()])) then
             cameraShakeDuration_ = shakeDuration
             cameraShakeMaxDuration_ = shakeMaxDuration
-            
+
             --scale the intensity based on distance
             local normalizedDistance = math.clamp(distance / maxRange, 0, 1)
             local exponent = 1.5 -- Tweak this value to change the curve's sharpness
@@ -130,13 +130,73 @@ end
 
 
 
-
-
-
-
 --==========================================================================================
---Regular Functions
+--Setter Functions
 --==========================================================================================
+
+local function UpdateModelScales()
+  local finalScale = 1
+
+  --Scale model based on the scales from all the previous weight variants
+  for _, variant in ipairs(weightVariants_) do
+    if variant.level < weightVariant_.level then
+      finalScale = finalScale * variant.heightScale
+    else
+      break
+    end
+  end
+
+  --Last limit is always 1 
+  local nextLimit = 1
+  if weightVariant_.level + 1 ~= #weightVariants_ then
+    nextLimit = weightVariants_[weightVariant_.level + 2].minWeight
+  end
+
+  --Scale player's current progression towards the next limit
+  local scaleAmount = h_.InverseLerp(weightVariant_.minWeight, nextLimit, weight_)
+  scaleAmount = math.lerp(1, weightVariant_.heightScale, scaleAmount)
+  finalScale = finalScale * scaleAmount
+
+  --[[ Scales the stomach based on weight
+  if weightVariant_.level == 0 then
+    --models.model.Body.Stomach:setScale(scaleAmount) 
+  elseif weightVariant_.level == 1 then
+    --models.model.Body2.Stomach:setScale(scaleAmount) 
+  elseif weightVariant_.level == 2 then
+    --models.model.BodyW2.BellyW2:setScale(scaleAmount) 
+  elseif weightVariant_.level == 3 then
+    --models.model.BodyW3.BellyW3:setScale(scaleAmount) 
+  else
+      --none
+  end
+  ]]
+
+  local reducedScale = math.min(1, 1 / (finalScale * 0.75) )
+
+  if (macro_) then
+    finalScale = finalScale * 2
+    reducedScale = math.min(1, 1 / (finalScale * 0.75) )
+  end
+
+  pings.SetAdditionalScale(finalScale)
+
+  
+  -- De-scale the head and hands (since the head shouldn't grow larger. Only fatter)
+  lizardHead_:setScale(reducedScale)
+
+  --adjust head if need be
+  if (macro_) then
+      lizardHead_:setPos(0, (finalScale - 1) * 0.06, 0)
+  else
+     lizardHead_:setPos(0, (finalScale - 1) * 0.1, 0)
+  end
+
+  -------------------------------- MODIFY HERE TO ADJUST HEAD/ARM DE-SCALING AT HUGE SIZES (Mitsi note:This is for your fat face cheeks, so they dont scale to hard while you get massive.
+  --  models.model.HeadW3:setPos(models.model.Head:getPos())
+  --models.model.HeadW3:setScale(models.model.Head:getScale()) 
+  --  models.model.LeftArmW4.LeftHandW4:setScale(1 / scale * reducedScale)
+  --  models.model.RightArmW4.RightHandW4:setScale(1 / scale * reducedScale) -- We shouldnt need these yet, so I disabled them for you guys for now - Mitsi
+end
 
 -- Toggles model parts for manually created stages of model weight gain
 local function setWeightVariant(variant)
@@ -191,6 +251,15 @@ local function setWeightVariant(variant)
   models.model.RightLegW4:setVisible(activation)
 end
 
+local function GetWeightVariantFromWeight(weight)
+  for i = #weightVariants_, 1, -1 do
+    if weight > weightVariants_[i].minWeight then
+      return weightVariants_[i]
+    end
+  end
+  return weightVariants_[1]
+end
+
 -- I'll modify the "weight" value in the future to go higher then one for funsies sakes :RivOwO:
 local function setWeight(amount)
     weight_ = amount
@@ -200,80 +269,6 @@ local function setWeight(amount)
     UpdateModelScales()
 end
 
-function GetWeightVariantFromWeight(weight)
-  for i = #weightVariants_, 1, -1 do
-    if weight > weightVariants_[i].minWeight then
-      return weightVariants_[i]
-    end
-  end
-  return weightVariants_[1]
-end
-
-
-function UpdateModelScales()
-  local finalScale = 1
-
-  for _, variant in ipairs(weightVariants_) do
-    if variant.level < weightVariant_.level then
-      finalScale = finalScale * variant.heightScale
-    else
-      break
-    end
-  end
-
-  local nextLimit = 1
-  if weightVariant_.level + 1 ~= #weightVariants_ then
-    nextLimit = weightVariants_[weightVariant_.level + 2].minWeight
-  end
-
-  local scaleAmount = h_.InverseLerp(weightVariant_.minWeight, nextLimit, weight_)
-
-  --print("scale amount:" .. scaleAmount .. "weightVariant_:" .. weightVariant_.minWeight .. " nextLimit:" .. nextLimit .. " weight_:" .. weight_)
-
-  scaleAmount = math.lerp(1, weightVariant_.heightScale, scaleAmount)
-  --print("scaling by " .. scaleAmount)
-  finalScale = finalScale * scaleAmount
-
-  --[[ Scales the stomach based on weight
-  if weightVariant_.level == 0 then
-    --models.model.Body.Stomach:setScale(scaleAmount) 
-  elseif weightVariant_.level == 1 then
-    --models.model.Body2.Stomach:setScale(scaleAmount) 
-  elseif weightVariant_.level == 2 then
-    --models.model.BodyW2.BellyW2:setScale(scaleAmount) 
-  elseif weightVariant_.level == 3 then
-    --models.model.BodyW3.BellyW3:setScale(scaleAmount) 
-  else
-      --none
-  end
-  ]]
-
-  local reducedScale = math.min(1, 1 / (finalScale * 0.75) )
-
-  if (macro_) then
-    finalScale = finalScale * 2
-    reducedScale = math.min(1, 1 / (finalScale * 0.75) )
-  end
-
-  pings.SetAdditionalScale(finalScale)
-
-  
-  -- De-scale the head and hands (since the head shouldn't grow larger. Only fatter)
-  lizardHead_:setScale(reducedScale)
-
-  --adjust head if need be
-  if (macro_) then
-      lizardHead_:setPos(0, (finalScale - 1) * 0.06, 0)
-  else
-     lizardHead_:setPos(0, (finalScale - 1) * 0.1, 0)
-  end
-
-  -------------------------------- MODIFY HERE TO ADJUST HEAD/ARM DE-SCALING AT HUGE SIZES (Mitsi note:This is for your fat face cheeks, so they dont scale to hard while you get massive.
-  --  models.model.HeadW3:setPos(models.model.Head:getPos())
-  --models.model.HeadW3:setScale(models.model.Head:getScale()) 
-  --  models.model.LeftArmW4.LeftHandW4:setScale(1 / scale * reducedScale)
-  --  models.model.RightArmW4.RightHandW4:setScale(1 / scale * reducedScale) -- We shouldnt need these yet, so I disabled them for you guys for now - Mitsi
-end
 
 -- Make big \\\\ not needed for now -Mitsi
 local function setMacro(value)
@@ -291,8 +286,9 @@ local function setMacro(value)
 end
 
 
-
-
+--==========================================================================================
+--Effects Functions
+--==========================================================================================
 
 local function shakeCamera(duration, intensity)
   if (macro_) then
@@ -305,11 +301,12 @@ local function shakeCamera(duration, intensity)
     cameraShakeIntensity_ = intensity
   end
 
+  cameraShakeUpdateTicker_ = cameraShakeUpdateTicker_ + 1
+
   -- Store so receivers can have their screen shaken
   avatar:store("cameraShakeDuration", cameraShakeDuration_)
   avatar:store("cameraShakeMaxDuration", cameraShakeMaxDuration_)
   avatar:store("cameraShakeIntensity", cameraShakeIntensity_)
-  cameraShakeUpdateTicker_ = cameraShakeUpdateTicker_ + 1
   avatar:store("cameraShakeUpdateTicker", cameraShakeUpdateTicker_)
 end
 
@@ -456,45 +453,7 @@ local function playBurpSound()
     end
 end
 
--- Plays sound effects where appropriate
-local function updateSounds()
-  -- Gurgle sounds
-  if (weightVariant_.level >= 3) then
-    gurgleSoundTimer_ = gurgleSoundTimer_ - 1
-    if (gurgleSoundTimer_ <= 0) then
-      gurgleSoundTimer_ = math.random(1100, 1300) - (weightVariant_.level - 3) * 800
-      if (macro_) then
-         gurgleSoundTimer_ = 160
-      end
-      playGurgleSound()
-    end
-  end
 
-  -- Slosh sounds
-  local minYaw = 48
-  if (macro_) then
-     minYaw = 12
-  end
-  if (weightVariant_.level >= 2) then
-    sloshSoundTimer_ = sloshSoundTimer_ - 1
-    if (sloshSoundTimer_ <= 0 and math.abs(player:getBodyYaw() - prevYaw_) > minYaw) then
-      sloshSoundTimer_ = 6
-      playSloshSound()
-    end
-  end
-  prevYaw_ = player:getBodyYaw()
-
-  -- Hungry sounds (occur more frequently the bigger the weight)
-  if (prevFood_ <= (6 + weightVariant_.level) and not (player:getGamemode() == "CREATIVE")) then
-    hungrySoundTimer_ = hungrySoundTimer_ - 1
-    if (hungrySoundTimer_ <= 0) then
-      hungrySoundTimer_ = math.random(150, 300)
-      playHungrySound()
-    end
-  else
-     hungrySoundTimer_ = 0
-  end
-end
 
 
 --==========================================================================================
@@ -562,47 +521,11 @@ function pings.PlayGurgleSound()
   playGurgleSound()
 end
 
+
 --==========================================================================================
---Main Functions
+--Tick Functions
 --==========================================================================================
-
-
-function we_.Init()
-
-
-
-  -- Initialize default eating values
-  prevFood_ = player:getFood()
-  prevSaturation_ = player:getSaturation()
-
-  -- Initialize sound update values
-  prevYaw_ = player:getBodyYaw()
-
-  -- Initialize default weight
-  setWeightVariant(weightVariants_[1])
-end
-
-function we_.tick() 
-  syncPingTimer_ = syncPingTimer_ + 1
-  if (syncPingTimer_ >= 80) then
-      pings.SyncPing(weight_, macro_)
-      syncPingTimer_ = 0
-  end
-
-
-  -- Adjust tail position when crouching
-  if (player:isCrouching()) then 
-  --    models.model.Tail:setPos(0, 2, 3)
-  --    models.model.TailW1:setPos(0, 0, 3)
-  --    models.model.TailW3:setPos(0, 2, 6)
-  ---    models.model.TailW4:setPos(0, 2, 6)
-  else
-  --    models.model.Tail:setPos(0, 0, 0)
-  --     models.model.TailW1:setPos(0, 0, 0)
-  --      models.model.TailW3:setPos(0, 0, 0)
-  --   models.model.TailW4:setPos(0, 0, 0)
-  end
-
+local function UpdateFoodAndWeightTick()
   -- Gain weight through food consumption (I might modify some of this later to make absorption hearts a bit silly, no clue how we'll update the scripts yet tho. -Mitsi)
   if (player:getFood() > prevFood_ or player:getSaturation() > prevSaturation_) then
     local amount = player:getFood() - prevFood_ + player:getSaturation() - prevSaturation_ -- Get number of points increased
@@ -615,7 +538,10 @@ function we_.tick()
   end
   prevFood_ = player:getFood()
   prevSaturation_ = player:getSaturation()
+end
 
+local function UpdateEffectsTick()
+  
   -- Cancel the fall time and play a water splash if landing in water Mitsinote: I might switch "weightVariant" to just your weight value, just for funsies
   if (player:isInWater()) then
     if (timeNotGrounded_ > 10 and weightVariant_.level >= 3) then
@@ -653,14 +579,54 @@ function we_.tick()
     sounds:playSound("block.stem.fall", player:getPos(), 1, 0.2, false)
   end
   wasSleeping_ = player:getPose() == "SLEEPING"
+end
 
-  updateSounds()
+-- Plays sound effects where appropriate
+local function UpdateSoundsTick()
+  -- Gurgle sounds
+  if (weightVariant_.level >= 3) then
+    gurgleSoundTimer_ = gurgleSoundTimer_ - 1
+    if (gurgleSoundTimer_ <= 0) then
+      gurgleSoundTimer_ = math.random(1100, 1300) - (weightVariant_.level - 3) * 800
+      if (macro_) then
+         gurgleSoundTimer_ = 160
+      end
+      playGurgleSound()
+    end
+  end
 
-  receiverUpdate()
+  -- Slosh sounds
+  local minYaw = 48
+  if (macro_) then
+     minYaw = 12
+  end
+  if (weightVariant_.level >= 2) then
+    sloshSoundTimer_ = sloshSoundTimer_ - 1
+    if (sloshSoundTimer_ <= 0 and math.abs(player:getBodyYaw() - prevYaw_) > minYaw) then
+      sloshSoundTimer_ = 6
+      playSloshSound()
+    end
+  end
+  prevYaw_ = player:getBodyYaw()
+
+  -- Hungry sounds (occur more frequently the bigger the weight)
+  if (prevFood_ <= (6 + weightVariant_.level) and not (player:getGamemode() == "CREATIVE")) then
+    hungrySoundTimer_ = hungrySoundTimer_ - 1
+    if (hungrySoundTimer_ <= 0) then
+      hungrySoundTimer_ = math.random(150, 300)
+      playHungrySound()
+    end
+  else
+     hungrySoundTimer_ = 0
+  end
 end
 
 
-function we_.render(delta, context)
+--==========================================================================================
+--Render Functions
+--==========================================================================================
+
+local function AlterLimbRotationRender(delta, context)
   -- Reduce arm movement strength while fat. Makes the arms feel weightier
   local rot = vanilla_model.LEFT_ARM:getOriginRot()
   -------------------------------- MODIFY HERE TO REDUCE THE MAGNITUDE OF ARM SWING MOVEMENT WHILE FAT (same part rules apply)  --------------------------------
@@ -686,7 +652,9 @@ function we_.render(delta, context)
   --  models.model.RightLegW2:setOffsetRot(-rot * 0.7)
   --  models.model.RightLegW3:setOffsetRot(-rot * 0.9)
   --   models.model.RightLegW4:setOffsetRot(-rot * 0.9)
+end
 
+local function ShakeCameraRender(delta, context)
   -- Shake the camera (Mitsi note: I'll look into this later)
   if (cameraShakeDuration_ > 0) then
     cameraShakeDuration_ = cameraShakeDuration_ - delta
@@ -698,30 +666,92 @@ function we_.render(delta, context)
   else
     renderer:setOffsetCameraPivot(0, 0, 0) -- Reset the camera when not shaking any more
   end
+end
 
+local function AdjustThirdPersonCameraRender(delta, context)
   -- Zoom camera out at larger sizes
   if (not renderer:isFirstPerson()) then
     renderer:setCameraPos(0, 0, (lizard_:getScale().y - 1) * 2.5)
   else
     renderer:setCameraPos(0, 0, 0)
   end
+end
 
+local function ResizeGUIRender(delta,context)
   -- Render inventory GUI model smaller to fit
   if (context == "MINECRAFT_GUI") then
     preGUIScale_ = lizard_:getScale()
-    if (weightVariant_.level == 3) then
-      lizard_:setScale(0.75 * 4)
-    elseif (weightVariant_.level == 4) then
-      lizard_:setScale(0.5 * 4)
+
+    if (weightVariant_.level > 0) then
+      local newScale = 1 + weightVariant_.level / #weightVariants_
+      lizard_:setScale(newScale)
     end
   end
 end
 
-function we_.post_render(delta, context)
-  -- Reset model size after GUI scaling
+-- Reset model size after GUI scaling
+local function ReturnGUITONormalPostRender(delta, context)
   if (context == "MINECRAFT_GUI") then
     lizard_:setScale(preGUIScale_)
   end
+end
+
+--==========================================================================================
+--Main Functions
+--==========================================================================================
+
+
+
+function we_.Init()
+  -- Initialize default eating values
+  prevFood_ = player:getFood()
+  prevSaturation_ = player:getSaturation()
+
+  -- Initialize sound update values
+  prevYaw_ = player:getBodyYaw()
+
+  -- Initialize default weight
+  setWeightVariant(weightVariants_[1])
+end
+
+--Happens 20 times per second
+function we_.Tick() 
+  syncPingTimer_ = syncPingTimer_ + 1
+  if (syncPingTimer_ >= 80) then
+    pings.SyncPing(weight_, macro_)
+    syncPingTimer_ = 0
+  end
+
+
+  -- Adjust tail position when crouching
+  if (player:isCrouching()) then 
+  --    models.model.Tail:setPos(0, 2, 3)
+  --    models.model.TailW1:setPos(0, 0, 3)
+  --    models.model.TailW3:setPos(0, 2, 6)
+  ---    models.model.TailW4:setPos(0, 2, 6)
+  else
+  --    models.model.Tail:setPos(0, 0, 0)
+  --     models.model.TailW1:setPos(0, 0, 0)
+  --      models.model.TailW3:setPos(0, 0, 0)
+  --   models.model.TailW4:setPos(0, 0, 0)
+  end
+
+  UpdateFoodAndWeightTick()
+  UpdateEffectsTick()
+  UpdateSoundsTick()
+  ReceiverUpdateTick()
+end
+
+
+function we_.render(delta, context)
+  AlterLimbRotationRender(delta, context)
+  ShakeCameraRender(delta, context)
+  AdjustThirdPersonCameraRender(delta, context)
+  ResizeGUIRender(delta, context)
+end
+
+function we_.post_render(delta, context)
+  ReturnGUITONormalPostRender(delta, context)
 end
 
 

@@ -29,7 +29,7 @@ local otherPage_ = action_wheel:newPage()
 local prevPages_ = {}
 
 --==========================================================================================
---Main Functions
+--Page Management Functions
 --==========================================================================================
 
 local function GetPreviousPage()
@@ -38,6 +38,10 @@ end
 local function SetPreviousPage(page)
 	table.insert(prevPages_,page)
 end
+
+--==========================================================================================
+--Action Setter
+--==========================================================================================
 
 local function SetActions()
   --- MENU ---
@@ -395,7 +399,9 @@ local function SetActions()
 
 end
 
-
+--==========================================================================================
+--Main Functions
+--==========================================================================================
 
 function wh_.Init()
 	action_wheel:setPage(menuPage_)

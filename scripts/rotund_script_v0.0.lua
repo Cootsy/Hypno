@@ -462,7 +462,7 @@ end
 
 
 
-function events.tick()
+function ro_.Tick()
 	
 	--RESET OUR FOOD AND WEIGHT LEVELS ON DEATH
 	if player:isAlive() == false then
