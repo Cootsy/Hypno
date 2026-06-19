@@ -3,7 +3,6 @@
 --==========================================================================================
 --Version
 local version_ = "1.0.4"
-local size_ = 4
 
 --Definitions
 local modelName_ = "models.hypno"
@@ -47,8 +46,10 @@ local wheel_ = require('scripts.wheel')
 ----
 -- Defines the default scale of the model (it's 4 because I modeled mine tiny </3)
 local baseModelScale_ = 4
-local playerScale_ = 4
-local playerAdditionalScale_ = 1
+local modelScale_ = 4
+local modelAdditionalScale_ = 1
+finalModelScale_ = 4
+
 
 -- More Defined Bodyparts
 local rightFrontLeg_ = lizardLegs_.RightFrontLeg
@@ -165,6 +166,7 @@ local lastScreen_ = nil
 -- Other File Stuff
 --==========================================================================================
 
+--Makes the Tail move, eyes blink, and horn shake
 local function SquapiInit()
   --Manages and limits head rotation
   --squapi_.smoothHead:new(
@@ -244,6 +246,7 @@ local function SquapiInit()
   )
 end
 
+--Makes object sway, currently only trident 
 local function SwingingPhysicsInit()
   --Adds swinging physics to a part that is attached to the head
   --@param part ModelPart The model part that should swing
@@ -291,6 +294,7 @@ local function SwingingPhysicsInit()
   --slugcat.Items.ItemPearl:setSecondaryRenderType("GLINT")
 end
 
+--Blends the different animations together
 local function JimmyAnimsInit()
   anims_.blendTime = 1
   anims_.itemBlendTime = 0.2
@@ -298,14 +302,16 @@ local function JimmyAnimsInit()
   anims_(animations[modelName_])
 end
 
+--Makes the stomach move
 local function TailInit()
   --Make Stomach move
   tailPhysics_.new(lizardBody_.StomachE):setConfig { bounce = 0.25, stiff = 0.4, enableWag = {false} }
 
   --arrow projectile move
-  tailPhysics_.new(lizard_.Misc.Arrow):setConfig { bounce = 0.25, stiff = 0.4, enableWag = {false} }
+  --tailPhysics_.new(lizard_.Misc.Arrow):setConfig { bounce = 0.25, stiff = 0.4, enableWag = {false} }
 end
 
+--Chat commands
 local function ChatInit()
   chat_.new("TriggerRavenous", TriggerRavenous, {"ravenous"}, "Does nothing")
   chat_.new("GrowlStomach", pings.PlayGurgleSound, {"hungry"}, "Does nothing")
@@ -327,7 +333,7 @@ local function ModelInit()
   models:setPrimaryRenderType("CUTOUT_CULL") 
 
   -- Adjust scale of Model and Items Inversely
-  ScaleModel(playerScale_)
+  ScaleModel(baseModelScale_)
 
   -- Set the model's root rotation to be not allowed. Rotations are now manual
   renderer:setRootRotationAllowed(false)
@@ -338,7 +344,7 @@ local function ModelInit()
 end
 
 function ScaleModel(newScale)
-  local finalScale = newScale * playerAdditionalScale_
+  local finalScale = newScale * modelAdditionalScale_
   lizard_:setScale(finalScale)
   local inverseScale = 1/finalScale
   local inverseScaleVec = vec(inverseScale, inverseScale, inverseScale)
@@ -662,7 +668,7 @@ function GUIDTick()
         lizardTail_.Tail2.Tail3.Bag:setPos(frontPos * 16)
 
         lizardTail_.Tail2.Tail3.Bag:setRot(0, 0, 0)
-        lizardTail_.Tail2.Tail3.Bag:setScale(playerScale_ * playerAdditionalScale_)
+        lizardTail_.Tail2.Tail3.Bag:setScale(modelScale_ * modelAdditionalScale_)
       end
 
     else
@@ -1088,8 +1094,8 @@ end
 --==========================================================================================
 
 function pings.SetAdditionalScale(value)
-  playerAdditionalScale_ = value
-  ScaleModel(playerScale_)
+  modelAdditionalScale_ = value
+  ScaleModel(modelScale_)
 end
 
 function pings.ScaleModel(value)
@@ -1132,14 +1138,14 @@ end
 ----
 function pings.ModelScaler(val)
 	if val == 0 then
-		playerScale_ = baseModelScale_
+		modelScale_ = baseModelScale_
 	else
-		playerScale_ = math.clamp(playerScale_ + val, 1, 8)
+		modelScale_ = math.clamp(modelScale_ + val, 1, 8)
 	end
 
-	ScaleModel(playerScale_)
+	ScaleModel(modelScale_)
 
-	log("[Scaler]", playerScale_)
+	log("[Scaler]", modelScale_)
 end
 
 function pings.EyeHeight(eye) 
@@ -1256,6 +1262,39 @@ function checkHeldItemKeybind_.press()
 end
 
 --==========================================================================================
+--On Sound Functions
+--==========================================================================================
+
+local function ReplaceSoundsPlayerMakes(id, pos, vol, pitch, loop, category, path)
+  local nearest, uuid = math.huge,nil -- we will find the nearest player to the sound location
+  for _, plr in pairs(world.getPlayers()) do
+    local dist = (plr:getPos() - pos):length()
+    if dist < nearest then nearest,uuid = dist,plr:getUUID() end
+  end
+  if player:getUUID() ~= uuid or nearest > 0.8 then return end -- don't trigger if the sound isn't near you
+
+  --Replacing sounds here
+  if id:find("shield") then
+    --local distance = (player:getPos() - pos):length()
+    --if distance <= 0.8 then
+    local randomPitch = 1.4 + math.random() * 0.2
+    --sounds:playSound("minecraft:item.chain.break", player:getPos(), 1.0, randomPitch)
+    sounds:playSound("minecraft:block.spawner.break", player:getPos(), 1.0, randomPitch)
+    return true -- Cancel vanilla shield clink
+    --end
+  end
+
+  ---------------------------------------------------------
+  -- actual replacing starts here, feel free to edit below:
+  --if id:find(".step") then                                                  -- if sound id contains ".step"
+  --    sounds:playSound("minecraft:entity.iron_golem.step", pos, vol, pitch) -- play a custom sound
+  --    return true                                                           -- stop the actual step sound
+  --end
+  return false
+end
+
+
+--==========================================================================================
 --Main Functions
 --==========================================================================================
 
@@ -1274,7 +1313,7 @@ function events.entity_init()
   ModelInit()
 
   --Run other function's inits
-  weight_.Init()
+  weight_.Init(modelScale_ * modelAdditionalScale_)
   wheel_.Init()
   ChatInit()
 end
@@ -1320,7 +1359,6 @@ function events.item_render(item, mode, pos, rot, scale, left)
 
    local newItem= ItemRenderer(item, mode, pos, rot, scale, left)
    if newItem then
-    
     return newItem
    end
 end
@@ -1328,32 +1366,13 @@ end
 
 
 function events.ON_PLAY_SOUND(id, pos, vol, pitch, loop, category, path)
-    if not path then return end -- don't trigger if the sound was played by figura (prevent infinite loop)
-    if not player:isLoaded() then return end -- don't trigger if the player isn't loaded
-    local nearest, uuid = math.huge,nil -- we will find the nearest player to the sound location
-    for _, plr in pairs(world.getPlayers()) do
-        local dist = (plr:getPos() - pos):length()
-        if dist < nearest then nearest,uuid = dist,plr:getUUID() end
-    end
-    if player:getUUID() ~= uuid or nearest > 0.8 then return end -- don't trigger if the sound isn't near you
+  if not path then return end -- don't trigger if the sound was played by figura (prevent infinite loop)
+  if not player:isLoaded() then return end -- don't trigger if the player isn't loaded
 
-    --Replacing sounds here
-    if id:find("shield") then
-        local distance = (player:getPos() - pos):length()
-        --if distance <= 0.8 then
-        local randomPitch = 1.4 + math.random() * 0.2
-        --sounds:playSound("minecraft:item.chain.break", player:getPos(), 1.0, randomPitch)
-        sounds:playSound("minecraft:block.spawner.break", player:getPos(), 1.0, randomPitch)
-        return true -- Cancel vanilla shield clink
-        --end
-    end
-
-    ---------------------------------------------------------
-    -- actual replacing starts here, feel free to edit below:
-    --if id:find(".step") then                                                  -- if sound id contains ".step"
-    --    sounds:playSound("minecraft:entity.iron_golem.step", pos, vol, pitch) -- play a custom sound
-    --    return true                                                           -- stop the actual step sound
-    --end
+  if ReplaceSoundsPlayerMakes(id, pos, vol, pitch, loop, category, path) then
+    return true
+  end
+  --return false
 end
 
 

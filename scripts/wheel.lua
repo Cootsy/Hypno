@@ -17,6 +17,7 @@ local lizardHead_ = modelConfig_.lizardHead
 local menuPage_ = action_wheel:newPage()
 
 local weightPage_ = action_wheel:newPage()
+local weightNoisesPage_ = action_wheel:newPage()
 local weightNumbersPage_ = action_wheel:newPage()
 
 local modelPage_ = action_wheel:newPage()
@@ -318,17 +319,18 @@ local function SetActions()
   end)
 	:setColor(vectors.hexToRGB("#f691ff"))
 	:setHoverColor(vectors.hexToRGB("#fac8ff"))
-
-	-- Create burp action
-  weightPage_:newAction()
-  :title("Burp")
-  :item("cooked_beef")
-  :onLeftClick(function()
-    pings.burp()
+	--Transition to WeightNumbers Page
+	weightPage_:newAction()
+	:title("Weight Noises Page")
+	:texture(textures["textures.icons"] or textures["models.textures.icons"], 192, 64, 32, 32)
+	:onLeftClick(function()
+	  SetPreviousPage(action_wheel:getCurrentPage())
+  	action_wheel:setPage(weightNoisesPage_)
   end)
-  :setColor(vectors.hexToRGB("#f691ff"))
+	:setColor(vectors.hexToRGB("#f691ff"))
 	:setHoverColor(vectors.hexToRGB("#fac8ff"))
 
+	
 	--Create macro action
   weightPage_:newAction()
   :title("Macro")
@@ -395,6 +397,55 @@ local function SetActions()
   end)
 	:setColor(vectors.hexToRGB("#b82934"))
 	:setHoverColor(vectors.hexToRGB("#db9499"))
+
+
+	--- WeightNoises---
+	--Go back a page
+	weightNoisesPage_:newAction()
+	:title("Back")
+	:texture(textures["textures.icons"] or textures["models.slugcat.icons"], 64, 64, 32, 32)
+  :onLeftClick(function()
+		action_wheel:setPage(GetPreviousPage())
+  end)
+	:setColor(vectors.hexToRGB("#b82934"))
+	:setHoverColor(vectors.hexToRGB("#db9499"))
+	-- Create burp action
+  weightNoisesPage_:newAction()
+  :title("Burp")
+  :item("cooked_beef")
+  :onLeftClick(function()
+    pings.burp()
+  end)
+  :setColor(vectors.hexToRGB("#f691ff"))
+	:setHoverColor(vectors.hexToRGB("#fac8ff"))
+	-- Create PlayGurgleSound action
+  weightNoisesPage_:newAction()
+  :title("Gurgle")
+  :texture(textures["textures.icons"] or textures["models.slugcat.icons"], 160, 32, 32, 32)
+  :onLeftClick(function()
+    pings.PlayGurgleSound()
+  end)
+  :setColor(vectors.hexToRGB("#f691ff"))
+	:setHoverColor(vectors.hexToRGB("#fac8ff"))
+	-- Create PlaySloshSound action
+  weightNoisesPage_:newAction()
+  :title("Slosh")
+  :texture(textures["textures.icons"] or textures["models.slugcat.icons"], 128, 64, 32, 32)
+  :onLeftClick(function()
+    pings.PlaySloshSound()
+  end)
+  :setColor(vectors.hexToRGB("#f691ff"))
+	:setHoverColor(vectors.hexToRGB("#fac8ff"))
+	-- Create PlayHungrySound action
+  weightNoisesPage_:newAction()
+  :title("Hungry")
+  :texture(textures["textures.icons"] or textures["models.slugcat.icons"], 96, 64, 32, 32)
+  :onLeftClick(function()
+    pings.PlayHungrySound()
+  end)
+  :setColor(vectors.hexToRGB("#f691ff"))
+	:setHoverColor(vectors.hexToRGB("#fac8ff"))
+
 
 
 end

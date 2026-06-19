@@ -22,16 +22,13 @@ local lizardHead_ = modelConfig_.lizardHead
 -- Helpers
 local h_ = require("scripts.api.helper")
 
--- Chat
-local ch_ = require("scripts.chat")
-
 --Weight Vars
 --------------
 local syncPingTimer_ = 0   -- Used to sync the weight variables with players that joined a server and haven't gotten pinged yet
 
 -- Weight variables
 local weight_ = 0          -- Weight is stored as a float from 0 to 1. 0 is minimum weight, while 1 is maximum
-local weightVariant_ = {level = 0, minWeight = 0}  -- Determines which set of manually-designed fat parts get toggled
+local weightVariant_ = {level = 0, minWeight = 0, heightScale = 1.0}  -- Determines which set of manually-designed fat parts get toggled
 local macro_ = false       -- Fun feature
 local preGUIScale_ = nil
 
@@ -71,9 +68,43 @@ local weightVariants_ =
   {level = 4, minWeight = 0.56, heightScale = 1.5},
 }
 
+--Rotund
+---------------------------------------------------------------------------
+local pehkui_ = require('scripts.api.Pehkui')
+
+-- ((CONFIGURE)) --
+local crouchSqzEnabled_ = true --SET THIS TO "false" IF YOU DON'T WANT THE CROUCH-SQUEEZING FEATURE
+local baseHeight_ = 0.6 --THIS IS FOR SLUGCAT HEIGHT. SET TO "1" FOR DEFAULT PLAYER HITBOX HEIGHT
+local squeezeLoop_ = sounds["sounds.squeezesLOOP1"]:loop(true) --THIS IS THE SQUEEZE SFX FILE NAME. YOU CAN REPLACE IT WITH YOUR OWN .OGG FILE IF YOU WANT. IF IT'S TOO BIG YOU MIGHT NEED TO COMPRESS IT
 
 
+-- ((OK DON'T CONFIGURE THE REST OF THESE))
+local myWidthMult_ = 1
+local jumpMod_ = 1 --THIS ONES EITHER 1 OR 0 DEPENDING ON IF STUCK 
+local lastJumpMod_ = 1
+local moveMod_ = 1 --SAME, 0 OR 1 (why didn't I just make these booleans)
+local lastMoveMod_ = 1
+local squeezeVal_ --DISTANCE BETWEEN OUR HIPS AND THE WALLS. SMALLER NUM MEANS TIGHTER SQUEEZE. 
+local isNarrowSqueezed_ = false
+local lastSqueezed_ = false
+local lastWeightStage_ = -1 --TO FORCE A WEIGHT CHANGE ON LOAD
+local struggleFlag_ = false --DELAYED START TO STRUGGLE WHILE STUCK
+local struggleTimer_ = 0 --HOW MANY FRAMES TO STRUGGLE
+local myFoodPoints_ = 0
+local lateUpdateFlag_ = false
+local crouchSqzTick_ = 0
+local crouchSqz_ = false
+local lastCrouchSqz_ = false
+local lastInWater_ = false
+local mainWidth_ = 0.6 --TRACK HITBOX WIDTH EXCLUDING CROUCHSEQUEEZE
+local lastBoundingX_ = 0.6
+local featherFall_ = true
 
+local playSqueezeSfx_ = false
+local lastPlaySqueezeSfx_ = false
+
+--KEYBINDS
+local struggleKey_ = keybinds:newKeybind("Struggle", keybinds:getVanillaKey("key.jump"))
 
 --==========================================================================================
 -- Retriever Functions
@@ -128,6 +159,82 @@ local function ReceiverUpdateTick()
   end
 end
 
+
+
+--==========================================================================================
+--Getters Functions
+--==========================================================================================
+
+local function GetWeightVariantFromWeight(weight)
+  for i = #weightVariants_, 1, -1 do
+    if weight > weightVariants_[i].minWeight then
+      return weightVariants_[i]
+    end
+  end
+  return weightVariants_[1]
+end
+
+
+
+
+local function isKindaMoving()
+	return player:getVelocity():length() >= 0.005  --player:isMoving()
+end
+
+local function struggleCheck()
+	if isNarrowSqueezed_ then
+		if isKindaMoving() == false then 
+			struggleTimer_ = 3 --MODIFY THIS VALUE TO DETERMINE HOW LONG YOUR STRUGGLE BOOSTS LAST
+			moveMod_ = 1
+			struggleFlag_ = true --WE NEED TO DELAY THIS A TICK OTHERWISE WE'LL JUMP
+			pehkui_.setScale("pehkui:jump_height", 0.0,false)
+		end
+	end
+end
+
+--CHECK IF A PHYSICAL BLOCK COLLISION EXISTS AT A SPECIFIC COORDINATE
+local function checkColRaycast(x, y, z)
+	
+	local startPos = player:getPos()
+	local endPos = startPos + vec(x, y, z)
+    local hit, rayendpos, side = raycast:block(startPos, endPos)
+	
+	return rayendpos
+end
+
+
+--DETECT IF THERE ARE BLOCKS AT BOTH SIDES OF EITHER AXIS
+local function updateNarrowSqueezed()
+	
+	--WAIT WHAT IF I MEASURED THE DISTANCE INSTEAD......
+	local distCheck = 2 + mainWidth_ --KIND OF ARBITRARY BUT LONG ENOUGH TO NOT BE AN ISSUE AND SHORT ENOUGH TO REDUCE COST
+	local yCheck = player:getEyeHeight() * 0.5 --PROBABLY A GOOD INDICATOR OF WHERE THEIR HIPS ARE
+	
+	local xPass = (checkColRaycast(distCheck, yCheck, 0).x - checkColRaycast(-distCheck, yCheck, 0).x) - mainWidth_
+	local zPass = (checkColRaycast(0, yCheck, distCheck).z - checkColRaycast(0, yCheck, -distCheck).z) - mainWidth_
+	local yPass = 2
+	
+	--BONUS CHECK IF WE'RE CRAWLING, CHECK FOR ROOM ABOVE US
+	if player:getPose() == "SWIMMING" then
+		distCheck = player:getBoundingBox().y + 2
+		yPass = checkColRaycast(0, distCheck, 0).y - checkColRaycast(0, -distCheck, 0).y - player:getBoundingBox().y
+	end
+	
+	squeezeVal_ = math.min(xPass, zPass, yPass) --TAKE WHICHEVER IS LOWER
+	-- print ("GAP " .. squeezeVal_)
+	
+	return (squeezeVal_ < 0.2)
+end
+
+--DETECT IF THERE'S A BLOCK DIRECTLY ABOVE OUR HEAD.
+local function canUncrouch()
+	local distCheck = 0.65 * myWidthMult_
+	return world.getBlockState(player:getPos():add(distCheck, 1.1, distCheck)):isSolidBlock() == false
+		and world.getBlockState(player:getPos():add(-distCheck, 1.1, distCheck)):isSolidBlock() == false
+		and world.getBlockState(player:getPos():add(distCheck, 1.1, -distCheck)):isSolidBlock() == false
+		and world.getBlockState(player:getPos():add(-distCheck, 1.1, -distCheck)):isSolidBlock() == false
+		and squeezeVal_ > 0
+end
 
 
 --==========================================================================================
@@ -251,22 +358,26 @@ local function setWeightVariant(variant)
   models.model.RightLegW4:setVisible(activation)
 end
 
-local function GetWeightVariantFromWeight(weight)
-  for i = #weightVariants_, 1, -1 do
-    if weight > weightVariants_[i].minWeight then
-      return weightVariants_[i]
-    end
-  end
-  return weightVariants_[1]
-end
+
 
 -- I'll modify the "weight" value in the future to go higher then one for funsies sakes :RivOwO:
 local function setWeight(amount)
-    weight_ = amount
-    weight_ = math.clamp(weight_,0,1)
-    local newWR = GetWeightVariantFromWeight(weight_)
-    setWeightVariant(newWR)
-    UpdateModelScales()
+  weight_ = amount
+  weight_ = math.clamp(weight_,0,1)
+end
+
+local function setWeightExtended(amount, squeezed,mm,jm,crouchsqz,wet)
+  setWeight(amount)
+
+  local newWR = GetWeightVariantFromWeight(weight_)
+  setWeightVariant(newWR)
+  UpdateModelScales()
+
+  --print("pings.setWeight " .. tostring(amount) .. " " .. tostring(squeezed) .. " " .. tostring(mm) .. " " .. tostring(jm) .. " " .. tostring(crouchSqz_))
+
+	updateWeightStats(newWR.level, squeezed, mm, jm, crouchsqz, wet)
+
+	isNarrowSqueezed_ = squeezed --UPDATE FOR OTHER CLIENTS (I don't think it worked)
 end
 
 
@@ -284,6 +395,14 @@ local function setMacro(value)
     attenuationModifier_ = 1
   end
 end
+
+
+local function ResetFood()
+	--prevFood_ = 20
+	--prevSaturation_ = 5
+	--myFoodPoints_ = 0
+end
+
 
 
 --==========================================================================================
@@ -405,52 +524,57 @@ end
 
 
 local function playGurgleSound()
-  if (macro_) then
-    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 0.5 - math.random() * 0.1, false)
-    :setAttenuation((4 + weightVariant_.level) * attenuationModifier_)
+ --local sound = "sounds.gurgle_" .. math.random(0, 1)
+  local sound = "minecraft:entity.drowned.ambient"
+  
+  local pitch = 0.5 - weight_ * 0.2 - math.random() * 0.2
 
+  if macro_ then
+    pitch = 0.5 - math.random() * 0.1
     if (cameraShakeDuration_ <= 4 or cameraShakeIntensity_ <= 0.05) then
       shakeCamera(320, 0.01)
     end
-  else
-    sounds:playSound("sounds.gurgle_" .. math.random(0, 1), player:getPos(), 0.5, 1 - math.random() * 0.2, false)
-    :setAttenuation((4 + weightVariant_.level) * attenuationModifier_)
-
-    if (weight_ >= 0.9) then
-      shakeCamera(160, weight_ * 0.06)
-    end
+  elseif (weight_ >= 0.9) then
+    shakeCamera(160, weight_ * 0.06)
   end
+
+  sounds:playSound(sound, player:getPos(), 0.5, pitch, false)
+    :setAttenuation((8 + weightVariant_.level) * attenuationModifier_)
 end
 
 local function playSloshSound()
-    if (macro_) then
-        sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.15, 0.05, false)
-        :setAttenuation(8 * attenuationModifier_)
-    end
-    sounds:playSound("slosh_" .. math.random(0, 1), player:getPos(), (0.1 + weight_ * 0.4), (1.0 - weight_ * 0.5) - math.random() * 0.15, false)
-    :setAttenuation((4 + weightVariant_.level) * attenuationModifier_)
+  if (macro_) then
+    sounds:playSound("entity.zombie.break_wooden_door", player:getPos(), 0.15, 0.05, false)
+    :setAttenuation(8 * attenuationModifier_)
+  end
+  local sound = "minecraft:entity.dolphin.swim" --"minecraft:entity.squid.ambient"
+  sounds:playSound(sound, player:getPos(), (1), (0.6 - weight_ * 0.2) - math.random() * 0.15, false)
+  :setAttenuation((1 + weightVariant_.level) * attenuationModifier_)
 
-    if (weight_ >= 0.9) then
-        shakeCamera(80, weight_ * 0.1)
-    end
+  if (weight_ >= 0.9) then
+    shakeCamera(80, weight_ * 0.1)
+  end
 end
 
 local function playHungrySound()
-    sounds:playSound("sounds.hungry_" .. math.random(0, 0), player:getPos(), 0.65, 1 - math.random() * 0.25, false)
+  local sound = "minecraft:entity.ravager.stunned"
+
+  sounds:playSound(sound, player:getPos(), 0.65, 1 - math.random() * 0.25, false)
+  :setAttenuation((16 + weightVariant_.level) * attenuationModifier_)
 end
 
 local function playBurpSound()
-    if (macro_) then
-        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.9, 0.5 - math.random() * 0.15, false)
-        :setAttenuation(8 * attenuationModifier_)
-    else
-        sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.7, (1 - weight_ * 0.25) - math.random() * 0.15, false)
-        :setAttenuation((6 + weightVariant_.level * 2) * attenuationModifier_)
-    end
+  if (macro_) then
+      sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.9, 0.5 - math.random() * 0.15, false)
+      :setAttenuation(8 * attenuationModifier_)
+  else
+      sounds:playSound("sounds.burp_" .. math.random(0, 1), player:getPos(), 0.7, (1 - weight_ * 0.25) - math.random() * 0.15, false)
+      :setAttenuation((6 + weightVariant_.level * 2) * attenuationModifier_)
+  end
 
-    if (weight_ >= 0.9) then
-        shakeCamera(160, weight_ * 0.1)
-    end
+  if (weight_ >= 0.9) then
+      shakeCamera(160, weight_ * 0.1)
+  end
 end
 
 
@@ -461,7 +585,7 @@ end
 --==========================================================================================
 
 function pings.SyncPing(amount, value)
-  setWeight(amount)
+  setWeightExtended(amount,isNarrowSqueezed_, moveMod_, jumpMod_, crouchSqz_, player:isInWater())
   setMacro(value)
 end
 
@@ -519,22 +643,37 @@ end
 
 function pings.PlayGurgleSound()
   playGurgleSound()
+  print("Played gurgle sound")
 end
 
+function pings.PlaySloshSound()
+  playSloshSound()
+  print("Played slosh sound")
+end
+
+function pings.PlayHungrySound()
+  playHungrySound()
+  print("Played hungry sound")
+end
+
+function pings.squeezeSfxPing(command)
+	playSqueezeSfx_ = command
+end
+
+
+function pings.setWeightExtended(amount, squeezed,mm,jm,crouchsqz,wet)
+  setWeightExtended(amount, squeezed,mm,jm,crouchsqz,wet)
+end
 
 --==========================================================================================
 --Tick Functions
 --==========================================================================================
 local function UpdateFoodAndWeightTick()
-  -- Gain weight through food consumption (I might modify some of this later to make absorption hearts a bit silly, no clue how we'll update the scripts yet tho. -Mitsi)
-  if (player:getFood() > prevFood_ or player:getSaturation() > prevSaturation_) then
+  -- Gain weight through food consumption
+  if (player:getFood() > prevFood_ or player:getSaturation() > prevSaturation_) or 
+    ((player:getFood() < prevFood_ and player:getFood() < 20) or (player:getSaturation() < prevSaturation_ and player:getSaturation() < 20)) then --MODIFIED TO ACCOUNT FOR WEIGHT LOSS TOO
     local amount = player:getFood() - prevFood_ + player:getSaturation() - prevSaturation_ -- Get number of points increased
-    if (host:isHost()) then
-       setWeight(weight_ + amount * weightPerHungerPoint_) -- Weight gain speed per hunger notch
-    end
-    if (player:getFood() >= 20 and weightVariant_.level >= 1) then
-      playBurpSound() -- Burp after topping off hunger
-    end
+    setWeight(weight_ + amount * weightPerHungerPoint_) -- Weight gain speed per hunger notch
   end
   prevFood_ = player:getFood()
   prevSaturation_ = player:getSaturation()
@@ -589,7 +728,7 @@ local function UpdateSoundsTick()
     if (gurgleSoundTimer_ <= 0) then
       gurgleSoundTimer_ = math.random(1100, 1300) - (weightVariant_.level - 3) * 800
       if (macro_) then
-         gurgleSoundTimer_ = 160
+        gurgleSoundTimer_ = 160
       end
       playGurgleSound()
     end
@@ -598,7 +737,7 @@ local function UpdateSoundsTick()
   -- Slosh sounds
   local minYaw = 48
   if (macro_) then
-     minYaw = 12
+    minYaw = 12
   end
   if (weightVariant_.level >= 2) then
     sloshSoundTimer_ = sloshSoundTimer_ - 1
@@ -617,8 +756,240 @@ local function UpdateSoundsTick()
       playHungrySound()
     end
   else
-     hungrySoundTimer_ = 0
+    hungrySoundTimer_ = 0
   end
+end
+
+local function RotundHostTick()
+    -- KEEP TRACK OF OUR MODEL'S CANON WIDTH. THE SIZING PROCESS TWEENS SO WE HAVE TO CHECK THIS EVERY TICK :/
+  if crouchSqz_ == false and player:getBoundingBox().x == lastBoundingX_ then --DON'T RUN IF THE VALUE IS CHANGING. WAIT UNTIL THE TWEEN IS DONE
+    mainWidth_ = player:getBoundingBox().x
+  elseif crouchSqz_ == true then
+    lastBoundingX_ = mainWidth_
+  else
+    lastBoundingX_ = player:getBoundingBox().x
+  end
+  
+  
+  if lastSqueezed_ ~= isNarrowSqueezed_ then
+    lateUpdateFlag_ = true --OKAY THIS WAS GONNA BOTHER ME. AVOID RUNNING THE UPDATE 2 TICKS IN A ROW WHEN CHANGING SQUEEZE STATES
+  end
+  
+  if lastWeightStage_ ~= weightVariant_.level or lastJumpMod_ ~= jumpMod_ or lastMoveMod_ ~= moveMod_ or lastCrouchSqz_ ~= crouchSqz_ or lastInWater_ ~= player:isInWater() then
+    setWeightExtended(weight_,isNarrowSqueezed_, moveMod_, jumpMod_, crouchSqz_, player:isInWater())
+  end
+  
+  
+  if isNarrowSqueezed_ then
+    
+    --ONLY PLAY THE SQUEEZE SOUND WHILE MOVING
+    if isKindaMoving() then
+      playSqueezeSfx_ = true
+    else
+      playSqueezeSfx_ = false
+    end
+    
+    --IF ONLY LIGHTLY SQUEEZED, WE DON'T COME TO A HALT
+    if squeezeVal_ <= 0.14 and struggleTimer_ <= 0 then --STUCK. UNTIL THE TIMER RESETS WHEN WE AREN'T SQUEEZED
+      moveMod_ = 0
+      if isKindaMoving() == false and struggleTimer_ <= -10 then
+        jumpMod_ = 0 --STOP JUMPING UNTIL WE SQUEEZE FREE
+      end
+    end
+    
+  else
+    moveMod_ = 1
+    jumpMod_ = 1
+    playSqueezeSfx_ = false
+  end
+  
+  
+  --OKAY NOW RUN A SQUEEZE RELATED WEIGHT UPDATE, IF WE DIDN'T ALREADY
+  if lateUpdateFlag_ then
+    setWeightExtended(weight_,isNarrowSqueezed_, moveMod_, jumpMod_, crouchSqz_, player:isInWater())
+  end
+  
+  
+  if struggleFlag_ then
+    if struggleFlag_ and player:getPose() ~= "SWIMMING" then
+      jumpMod_ = 1
+    end
+    struggleFlag_ = false
+  end
+  
+  --ONLY PING THE SQUEEZE SFX IF IT CHANGED
+  if lastPlaySqueezeSfx_ ~= playSqueezeSfx_ then
+    pings.squeezeSfxPing(playSqueezeSfx_)
+    lastPlaySqueezeSfx_ = playSqueezeSfx_
+  end
+end
+
+local function RotundAllTick()
+    --OKAY FINE RUN IT EVERY TICK THEN. FUCK YOU
+	if playSqueezeSfx_ then
+		squeezeLoop_:play()
+		squeezeLoop_:setPos(player:getPos())
+		--ADJUST PITCH AND VOLUME BASED ON TIGHTNESS
+		if squeezeVal_ <= 0.08 then
+			squeezeLoop_:setVolume(1)
+			squeezeLoop_:setPitch(0.7)
+		elseif squeezeVal_ <= 0.14 then
+			squeezeLoop_:setVolume(1)
+			squeezeLoop_:setPitch(0.85)
+		else
+			squeezeLoop_:setVolume(0.6)
+			squeezeLoop_:setPitch(1)
+		end
+	else
+		squeezeLoop_:pause()
+	end
+	
+	--I THINK WE CAN SAFELY REACH SPEED 0 IN THE AIR SINCE THERE'S NO FOOTSTEPS
+	if moveMod_ == 0 and player:isMoving() and isKindaMoving() == false and player:getVelocity().y < 0 and (player:isOnGround() or player:isClimbing()) == false then 
+		pehkui_.setScale("pehkui:motion", 0, false)
+		pehkui_.setScale("pehkui:motion", 0, false)
+	end
+	
+	if moveMod_ == 0 and not isKindaMoving() then
+		-- pehkui.setScale("pehkui:view_bobbing", 0)
+		-- pehkui.setScale("pehkui:view_bobbing", 0)
+		-- print("vb")
+		-- animations:stopAll()
+		--WAIT WOULD THIS WORK...
+		if host:isHost() then
+			-- pehkui.setScale("pehkui:motion", 0)
+			-- pehkui.setScale("pehkui:motion", 0)
+		end
+	else
+		-- pehkui.setScale("pehkui:view_bobbing", 1)
+	end
+	
+	--MODIFIED FROM THE WG_TEMPLATE. RECREATE OUR FOOTSTEPS BECAUSE WE DISABLED THE VANILLA ONES BECAUSE THEY BROKE
+	-- Use a timer to determine step sound times
+    if (player:isOnGround()) then
+        stepTime_ = stepTime_ + player:getVelocity():length()
+	elseif player:isClimbing() then
+		stepTime_ = stepTime_ + player:getVelocity():length() * 1.5
+    end
+    if (stepTime_ >= 1.625) then
+        stepTime_ = stepTime_ % 1.625
+        -- PlayFootstep() --MAYBE LATER WE'LL BRING THIS BACK BUT RIGHT NOW OTHER PLAYERS CAN'T EVEN HEAR IT
+    end
+end
+
+
+local function UpdateSqueezeGraphics(stage)
+  pehkui_.setScale("pehkui:model_width", 1, false) --A QUICK LAZY WAY TO CHANGE THE WIDTH OF YOUR WHOLE MODEL. WORKS ON ANY MODEL
+	
+	--EVERYTHING ELSE IS SLUGCAT SPECIFIC
+	--SHOW THE > < EYES WHEN SQUEEZED 
+	--models.models.slugcat.FullBody.UpperBody.head.Main.Eyes.Base:setVisible(lastSqueezed_ == false)
+	--models.models.slugcat.FullBody.UpperBody.head.Main.Eyes.Squint:setVisible(lastSqueezed_) 
+	--models.models.slugcat.FullBody.UpperBody.Body.Main.Gourmand:setVisible(true) --ASSUME THIS IS TRUE UNLESS TOLD OTHERWISE
+	
+	
+	if stage <= 1 then
+		pehkui_.setScale("pehkui:model_width", 1.25, false)
+	end
+end
+
+function updateWeightStats(stage, squeezed, mm, jm, crouchSqz, wet) --OKAY WE NEED TO TAKE OUR SQUEEZED BOOL INTO ACCOUNT AND 'ONLY' RUN MOVEMENT SCALING IN HERE TO AVOID SPEED DESYNCS AND SERVER FALL DAMAGE
+	-- print("UPDATE WS " .. tostring(stage))
+	local mySpeedMult = 1
+	
+	--SOME NOTABLE WIDTH VALUES:
+	--1.0  default
+	--1.08 slightly squeezes in open doorways (slowed, but not stuck)
+	--1.14 tight squeezes in open doorways (slowed and stuck)
+	--1.28 barely fits through open doorways (slowed more and stuck quicker)
+	--1.37 slightly squeezes in 1 block wide gaps (does not fit open doorways)
+	--1.45 tight squeezes in 1 block wide gaps
+	--1.60 barely fits through 1 block wide gaps
+	--(THEN YOU WON'T GET STUCK IN MUCH UNTIL YOU'RE BIG ENOUGH TO GET STUCK IN 2 BLOCK GAPS)
+	--2.40 slightly squeezes in open double-doorways
+	--2.50 tight squeezes in open double-doorways
+	--2.60 barely fits through open double-doorways
+	--(ETC.. JUST KEEP INCREASING THE NUMBER)
+	
+	--WHEN CROUCH-SQUEEZING, TIGHTNESS IS CALCULATED USING YOUR UN-CROUCH-SQUEEZED WEIGHT. SO IF YOU HAVE TO CROUCH-SQUEEZE TO ENTER A GAP IT WILL ALWAYS BE VERY TIGHT
+	
+	
+	-- ((CONFIGURE)) -- WEIGHT STAGES; MODIFY YOUR STATS BELOW TO DETERMINE WHAT YOU GET AT EACH WEIGHT STAGE
+	if stage <= 0 then
+		mySpeedMult = 1
+		myWidthMult_ = (1)
+	elseif stage == 1 then
+		mySpeedMult = 0.9
+		myWidthMult_ = ((crouchSqz and 1.0) or 1.14) --THE FIRST NUMBER IS FOR WHEN YOURE CROUCH-SQUEEZING. THE SECOND NUMBER IS FOR EVERYTHING ELSE
+	elseif stage == 2 then
+		mySpeedMult = 0.85
+		myWidthMult_ = ((crouchSqz and 1.0) or 1.28)
+	elseif stage == 3 then
+		mySpeedMult = 0.8
+		myWidthMult_ = ((crouchSqz and 1.1) or 1.45) 
+	elseif stage == 4 then
+		mySpeedMult = 0.75
+		myWidthMult_ = ((crouchSqz and 1.28) or 1.60)
+	elseif stage == 5 then
+		mySpeedMult = 0.5
+		myWidthMult_ = ((crouchSqz and 2) or 2.5)
+	end
+	--FEEL FREE TO ADD OR REMOVE WEIGHT STAGES HOWEVER YOU'D LIKE. DON'T FORGET TO MAKE THOSE SAME CHANGES TO THE "weightStage()" FUNCTION BELOW
+	--THERE ARE OTHER STATS YOU MIGHT CONSIDER ADDING INTO WEIGHT STAGES TOO...
+	-- pehkui_.setScale("pehkui:defense", 1)
+	-- pehkui_.setScale("pehkui:knockback", 1)
+	
+	
+	-- ((CONFIGURE)) -- GET SLIGHTLY SHORTER FOR CROUCHSQUEEZE
+	pehkui_.setScale("pehkui:hitbox_height", (crouchSqz_ and 0.5) or baseHeight_, false)
+	pehkui_.setScale("pehkui:eye_height", (crouchSqz_ and 0.5) or baseHeight_, false)
+	--I MADE THESE THE SAME IN EACH WEIGHT STAGE BUT YOU COULD MOVE THESE INTO EACH WEIGHT STAGE TO CHANGE THEM
+	
+	--REDUCE SPEED VALUES WHEN SQUEEZED
+	if squeezed then
+		mySpeedMult = mySpeedMult * 0.4
+	end
+	
+	--REDUCED FRICTION WHEN IN WATER.
+	if wet and mm == 0 then
+		mySpeedMult = mySpeedMult / 2
+		mm = 1
+	end
+	
+	--SQUEEZE TO A MORE SUDDEN HALT FOR TIGHTER SQUEEZES.
+	if mm == 0 and isKindaMoving() then 
+		if squeezeVal_ < 0.08 then --TIGHT SQUEEZE 
+			pehkui_.setScale("pehkui:motion", 0.2, false)
+			pehkui_.setScale("pehkui:motion", 0.2, false)--YES WE HAVE TO RUN THIS TWICE TO SKIP THE TWEEN
+		else --MEDIUM SQUEEZE 
+			pehkui_.setScale("pehkui:motion", 0.4, false)
+			pehkui_.setScale("pehkui:motion", 0.4, false)
+		end
+		--LIGHT SQUEEZES WON'T RUN THIS
+	end
+	
+	--THANKS TO A PEHKUI BUG, WE CAN'T EVER LET MOTION BE 0 OR WE COULD TRIGGER THE THOUSAND FOOTSTEPS BUG
+	pehkui_.setScale("pehkui:motion", mySpeedMult * (((mm == 0) and 0.01) or mm), false)
+	pehkui_.setScale("pehkui:hitbox_width", myWidthMult_, false)
+	
+	
+	--WTF IS IT DOING TO OUR GRAVITY?? FIX THAT
+	local speedlerp = (math.lerp(mySpeedMult, 1, 0.3))
+	local myJumpMult = (1/speedlerp)
+	pehkui_.setScale("pehkui:jump_height", myJumpMult * jm, false)
+	pehkui_.setScale("pehkui:jump_height", myJumpMult * jm, false)
+	pehkui_.setScale("pehkui:step_height", 1/mySpeedMult, false)
+	pehkui_.setScale("pehkui:step_height", 1/mySpeedMult, false)
+	pehkui_.setScale("pehkui:falling", (squeezed and 0) or mySpeedMult * mm, false) --DON'T BREAK OUR ANKLES WHEN SQUEEZING PLEASE
+	
+	UpdateSqueezeGraphics(stage)
+	
+	lastWeightStage_ = stage
+	lastSqueezed_ = squeezed
+	lastJumpMod_ = jm
+	lastMoveMod_ = mm
+	lateUpdateFlag_ = false
+	lastInWater_ = wet
 end
 
 
@@ -696,13 +1067,25 @@ local function ReturnGUITONormalPostRender(delta, context)
   end
 end
 
+
+--==========================================================================================
+-- Keybinds
+--==========================================================================================
+
+function struggleKey_.press()
+  struggleCheck()
+end
+
+
+
+
 --==========================================================================================
 --Main Functions
 --==========================================================================================
 
 
 
-function we_.Init()
+function we_.Init(scale)
   -- Initialize default eating values
   prevFood_ = player:getFood()
   prevSaturation_ = player:getSaturation()
@@ -711,32 +1094,55 @@ function we_.Init()
   prevYaw_ = player:getBodyYaw()
 
   -- Initialize default weight
-  setWeightVariant(weightVariants_[1])
+  pings.setWeightExtended(0,isNarrowSqueezed_, moveMod_, jumpMod_, crouchSqz_, player:isInWater())
+	
+	-- SLUGCAT SPECIFIC THINGS
+	pehkui_.setScale("pehkui:hitbox_height", scale, false)
+	pehkui_.setScale("pehkui:eye_height", scale, false)
 end
 
 --Happens 20 times per second
 function we_.Tick() 
-  syncPingTimer_ = syncPingTimer_ + 1
-  if (syncPingTimer_ >= 80) then
-    pings.SyncPing(weight_, macro_)
-    syncPingTimer_ = 0
+  isNarrowSqueezed_ = updateNarrowSqueezed() --OKAY WE SHOULD ONLY BE RUNNING THIS ONCE A TICK NOW IT'S SO EXPENSIVE
+
+  --OK FR, THIS ONLY NEEDS TO BE RUN BY THE HOST
+	if host:isHost() then
+    --RESET OUR FOOD AND WEIGHT LEVELS ON DEATH
+		if player:isAlive() == false then
+			ResetFood()
+			return 
+		end --AND THEN SKIP EVERYTHING UNDER THIS
+
+    if struggleTimer_ > -10 then --GIVE US A CHANCE TO JUMP AFTER STRUGGLING WHILE STANDING STILL
+			struggleTimer_ = struggleTimer_ - 1
+		end
+		
+		--ALLOW US TO SHRINK OUR HITBOX SLIGHTLY IF WE CROUCH LONG ENOUGH.
+		lastCrouchSqz_ = crouchSqz_
+		if player:getPose() == "CROUCHING" and crouchSqzEnabled_ then
+			crouchSqzTick_ = crouchSqzTick_ + 1
+			if crouchSqzTick_ >= 20 then
+				crouchSqz_ = true
+			end
+		elseif crouchSqz_ and canUncrouch() then
+			crouchSqz_ = false
+			crouchSqzTick_ = 0
+		end
+
+    syncPingTimer_ = syncPingTimer_ + 1
+    if (syncPingTimer_ >= 80 and isNarrowSqueezed_ == false) then
+      pings.SyncPing(weight_, macro_)
+      syncPingTimer_ = 0
+    end
+
+    UpdateFoodAndWeightTick()
+
+    RotundHostTick()
   end
 
-
-  -- Adjust tail position when crouching
-  if (player:isCrouching()) then 
-  --    models.model.Tail:setPos(0, 2, 3)
-  --    models.model.TailW1:setPos(0, 0, 3)
-  --    models.model.TailW3:setPos(0, 2, 6)
-  ---    models.model.TailW4:setPos(0, 2, 6)
-  else
-  --    models.model.Tail:setPos(0, 0, 0)
-  --     models.model.TailW1:setPos(0, 0, 0)
-  --      models.model.TailW3:setPos(0, 0, 0)
-  --   models.model.TailW4:setPos(0, 0, 0)
-  end
-
-  UpdateFoodAndWeightTick()
+  -- THE REST OF THIS RUNS FOR ALL PLAYERS --
+  RotundAllTick()
+  
   UpdateEffectsTick()
   UpdateSoundsTick()
   ReceiverUpdateTick()
