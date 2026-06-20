@@ -2,7 +2,7 @@
 -- THIS IS THE MAIN SCRIPT THAT RUNS THE MAIN FUNCTIONS OF THE MODEL
 --==========================================================================================
 --Version
-local version_ = "1.0.4"
+local version_ = "1.0.5"
 
 --Definitions
 local modelName_ = "models.hypno"
@@ -321,14 +321,30 @@ end
 -- Base Model Functions (makes the barebones work)
 --==========================================================================================
 
+--Scale the whole model and inverse scale the items
+local function ScaleModel(newScale)
+  finalModelScale_ = newScale * modelAdditionalScale_
+  lizard_:setScale(finalModelScale_)
+
+  --Make items always be the same size
+  local inverseScale = 1/finalModelScale_
+  local inverseScaleVec = vec(inverseScale, inverseScale, inverseScale)
+  lizardHead_.RightItemPivot:setScale(inverseScaleVec)
+  lizardHead_.LeftItemPivot:setScale(inverseScaleVec)
+
+  --Shadow
+  renderer:setShadowRadius(finalModelScale_ / 2)
+end
+
+
+--Sets up the inintal model important stuff
 local function ModelInit()
   -- Hide vanilla parts
   vanilla_model.PLAYER:setVisible(false) --hide vanilla model
   vanilla_model.ARMOR:setVisible(false) --hide vanilla armor model
   vanilla_model.CAPE:setVisible(false) --hide vanilla cape model
   vanilla_model.ELYTRA:setVisible(false) --hide vanilla elytra model
-  --vanilla_model.HELMET_ITEM:setVisible(true)  --re-enable the helmet item
-
+ 
   -- Set rendering type for optimized performance. Prevents back faces from rendering
   models:setPrimaryRenderType("CUTOUT_CULL") 
 
@@ -338,24 +354,15 @@ local function ModelInit()
   -- Set the model's root rotation to be not allowed. Rotations are now manual
   renderer:setRootRotationAllowed(false)
 
+  --Set Model Chat stuff
   nameplate.CHAT:setText('{"text" : "Coo", "color" : "White"}')
   nameplate.ENTITY:setText('{"text" : "Enigma", "color" : "Orange"}')
   nameplate.LIST:setText('{"text" : "Coo", "color" : "White"}')
 end
 
-function ScaleModel(newScale)
-  local finalScale = newScale * modelAdditionalScale_
-  lizard_:setScale(finalScale)
-  local inverseScale = 1/finalScale
-  local inverseScaleVec = vec(inverseScale, inverseScale, inverseScale)
-  lizardHead_.RightItemPivot:setScale(inverseScaleVec)
-  lizardHead_.LeftItemPivot:setScale(inverseScaleVec)
 
-  renderer:setShadowRadius(finalScale / 2)
-end
-
-
-function ManualPlayerRotation(delta, context)
+--Rotates the whole model towards where player is viewing
+function ManualPlayerRotationRender(delta, context)
   if not player then return end
 
   local lookVector = player:getLookDir()
@@ -408,7 +415,7 @@ function ManualPlayerRotation(delta, context)
   end
 end
 
---Limits how far the head can rotate   !!!Handled by squapi so this is unused
+--Limits how far the head can rotate
 function ManualPlayerHeadRotationRender(delta, context)
   if not player then return end
 
@@ -447,7 +454,6 @@ function ManualPlayerHeadRotationRender(delta, context)
   end
 end
 
-
 -- Animates the 6 legs
 function RotateLegs(delta, context)
     -- Get the current rotation and offset of the vanilla right leg
@@ -471,8 +477,7 @@ function RotateLegs(delta, context)
     leftHindLeg_:setRot(mainLeftLegRot)
 end
 
-
-
+--Moves the head to offset vanilla head crouch behavior
 local function ManageCrouchingTick()
   if not player then return end
 
@@ -492,7 +497,7 @@ local function ManageCrouchingTick()
   end
 end
 
-
+--UNUSED
 local function WaterRender()
 	local pose = player:getPose()
   local inLiquid = player:isInWater() or player:isInLava()
@@ -522,9 +527,6 @@ function ShakeTick()
     animations[modelName_].shake:stop()
   end
 end
-
-
-
 
 
 --==========================================================================================
@@ -565,9 +567,8 @@ function HungerStareTick()
     --living creatures only
     if target:isLiving() then
       --properties
-      local creatureID = target:getType()
-      local cleanName = target:getName()
- 
+      --local creatureID = target:getType()
+      --local cleanName = target:getName()
       --print("You are looking at a creature: " .. cleanName .. " (" .. creatureID .. ")")
             
       if not ravenous_ then
@@ -580,7 +581,7 @@ function HungerStareTick()
   end
 end
 
-
+--Ravenous Toggle
 function TriggerRavenous()
   ravenous_ = not ravenous_
 
@@ -604,6 +605,7 @@ function ChatOpenTick()
   wasChatOpen_=isChatOpen
 end
 
+--Make a model appear when typing. Moves the bags to the ground when opening inventory
 function GUIDTick()
 	-- Must be loaded
   if not player:isLoaded() then return end
@@ -688,6 +690,7 @@ end
 -- Items
 --==========================================================================================
 
+--20 times, check if the grip is altered or eating
 function ItemTick()
   --vanilla_model.HELD_ITEMS:setVisible(false)
   --ColorByHunger()
@@ -841,17 +844,7 @@ function FullEat()
   end
 end
 
-
-
-local function HeadTableContains(tbl, x)
-  for _, value in ipairs(tbl) do
-    if value[1] == x then
-      return true
-    end
-  end
-  return false
-end
-
+--Get the UV vec from the different heads
 local function HeadTableGetUVVec(tbl, x)
 	for _, value in ipairs(tbl) do
     if value[1] == x then
@@ -862,10 +855,10 @@ local function HeadTableGetUVVec(tbl, x)
 end
 
 
-
+--Worn heads are "Masks", so make the oppropriact one visible
 local function WearMask(armor)
   local mask = h_.TableContains(listOfAllHeads_, armor.id)
-  local maskVec = armor.id and HeadTableGetUVVec(listOfAllHeads_, armor.id)
+  local maskVec = armor.id and HeadTableGetUVVec(listOfAllHeads_, armor.id) or nil
 	
 	local masksModel = lizardHead_.Masks
 	if masksModel then
@@ -879,6 +872,7 @@ local function WearMask(armor)
 	end
 end
 
+--Worn armor is certain model pieces recolored based on slot
 local function WearArmor(armor)
   --Get the type for the armor and return color for it if it exists
 	local armorType = armor.id and armor.id:lower():match("minecraft:([^_]+)")
@@ -900,6 +894,7 @@ local function WearArmor(armor)
 	end
 end
 
+--Checks if there's a change in armor, if so 'wear' it visually
 local function ArmorTick()
   if lizardArmor_ == false then return end
 
@@ -921,13 +916,14 @@ local function ArmorTick()
   end
 end
 
-
+--UNUSED for now
 local function CollarTick()
   if lizardHead_.Collar then
 		--lizardHead_.Collar:setVisible((collar_ == true and color == nil))
 	end
 end
 
+--Renders the custom trident
 local function ItemTridentLogic(item, lefty)
   local enchants = item:hasGlint()
 		--print(enchants)
@@ -962,6 +958,7 @@ local function ItemTridentLogic(item, lefty)
 		end
 end
 
+--Exchanges vanilla items for custom models
 local function ItemRenderer(item, mode, pos, rot, scale, lefty)
 	--Check that items exist
 	if lizard_.Items == nil then return end
@@ -1009,6 +1006,7 @@ local function ItemRenderer(item, mode, pos, rot, scale, lefty)
 	]]
 end
 
+--UNUSED Damage blocked due to a shield is replaced with spear lunge
 local function BlockingSoundDamage(amount, source, type)
     -- 1. Check if you are actively using a shield
   local isUsingItem = player:isUsingItem()
@@ -1099,6 +1097,7 @@ function pings.SetAdditionalScale(value)
 end
 
 function pings.ScaleModel(value)
+  ScaleModel(value)
 end
 
 --Eye Pings
@@ -1265,6 +1264,7 @@ end
 --On Sound Functions
 --==========================================================================================
 
+--This replaces the sounds the player makes
 local function ReplaceSoundsPlayerMakes(id, pos, vol, pitch, loop, category, path)
   local nearest, uuid = math.huge,nil -- we will find the nearest player to the sound location
   for _, plr in pairs(world.getPlayers()) do
@@ -1273,23 +1273,30 @@ local function ReplaceSoundsPlayerMakes(id, pos, vol, pitch, loop, category, pat
   end
   if player:getUUID() ~= uuid or nearest > 0.8 then return end -- don't trigger if the sound isn't near you
 
+  
+
   --Replacing sounds here
   if id:find("shield") then
+    --print(id)
     --local distance = (player:getPos() - pos):length()
     --if distance <= 0.8 then
-    local randomPitch = 1.4 + math.random() * 0.2
-    --sounds:playSound("minecraft:item.chain.break", player:getPos(), 1.0, randomPitch)
-    sounds:playSound("minecraft:block.spawner.break", player:getPos(), 1.0, randomPitch)
+    local randomPitch = 1.8 + math.random() * 0.2
+    --print(randomPitch)
+    sounds:playSound("minecraft:block.anvil.land", player:getPos(), 1.0, randomPitch)
+    --sounds:playSound("minecraft:block.spawner.break", player:getPos(), 1.0, randomPitch)
+
+    
     return true -- Cancel vanilla shield clink
     --end
+  elseif id:find("hurt") then
+    local randomPitch = 0.21 + math.random() * 0.2
+    --print(randomPitch)
+    sounds:playSound("minecraft:block.slime_block.step", player:getPos(), 2.0, randomPitch)
+    sounds:playSound("minecraft:block.slime_block.step", player:getPos(), 2.0, randomPitch)
+    sounds:playSound("minecraft:block.slime_block.step", player:getPos(), 2.0, randomPitch)
+    return true
   end
 
-  ---------------------------------------------------------
-  -- actual replacing starts here, feel free to edit below:
-  --if id:find(".step") then                                                  -- if sound id contains ".step"
-  --    sounds:playSound("minecraft:entity.iron_golem.step", pos, vol, pitch) -- play a custom sound
-  --    return true                                                           -- stop the actual step sound
-  --end
   return false
 end
 
@@ -1313,7 +1320,7 @@ function events.entity_init()
   ModelInit()
 
   --Run other function's inits
-  weight_.Init(modelScale_ * modelAdditionalScale_)
+  weight_.Init(finalModelScale_)
   wheel_.Init()
   ChatInit()
 end
@@ -1340,7 +1347,7 @@ end
 function events.render(delta, context)
   
   RotateLegs(delta,context)
-  ManualPlayerRotation(delta, context)
+  ManualPlayerRotationRender(delta, context)
   ManualPlayerHeadRotationRender(delta, context)
 
   weight_.render(delta, context)

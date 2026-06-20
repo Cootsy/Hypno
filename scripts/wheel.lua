@@ -2,16 +2,7 @@
 -- This is a side script that manages extended wheel controls
 --==========================================================================================
 local wh_ = {}
-wh_.version_ = "1.0.4"
-
---Config
-local modelConfig_ = require("scripts.config")
-local lizard_ = modelConfig_.lizard
-local lizardFullbody_ = modelConfig_.lizardFullbody
-local lizardBody_ = modelConfig_.lizardBody
-local lizardLegs_ = modelConfig_.lizardLegs
-local lizardTail_ = modelConfig_.lizardTail
-local lizardHead_ = modelConfig_.lizardHead
+wh_.version_ = "1.0.5"
 
 --Pages
 local menuPage_ = action_wheel:newPage()
@@ -38,6 +29,10 @@ local function GetPreviousPage()
 end
 local function SetPreviousPage(page)
 	table.insert(prevPages_,page)
+end
+local function SetNextPage(page)
+	SetPreviousPage(action_wheel:getCurrentPage())
+	action_wheel:setPage(page)
 end
 
 --==========================================================================================
