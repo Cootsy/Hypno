@@ -605,6 +605,73 @@ function ChatOpenTick()
   wasChatOpen_=isChatOpen
 end
 
+local function UpdateLastScreen(currentScreen)
+  lastScreen_ = currentScreen
+
+  --Check if using chat
+  if currentScreen and currentScreen:find("ChatScreen")  then
+    -- print("You are currently typing in chat!")
+      
+    -- Example: Make a "thinking" thought-bubble model part visible
+    if lizardFullbody_.DialogueBox then
+      lizardFullbody_.DialogueBox:setVisible(true)
+      animations[modelName_].dialogue:play()
+    end
+
+  else
+    -- Runs when you close the chat box and return to standard movement
+    -- Example: Hide your thinking model part again
+      if lizardFullbody_.DialogueBox then
+        lizardFullbody_.DialogueBox:setVisible(false)
+        animations[modelName_].dialogue:stop()
+      end
+  end
+
+  --Check if using inventory
+  if currentScreen and currentScreen:find("InventoryScreen")  then
+    --print("You are currently typing in your inventory!")
+      
+    -- Example: Make a "thinking" thought-bubble model part visible
+    if lizardBag_ and lizardTail_.Tail2.Tail3.Bag then
+      --print("setting parent")
+      -- Snap the weapon directly to the player's right hand group
+      --lizardTail_.Tail2.Tail3.Bag:setParentType("RightItemPivot")
+      -- Optional: Reset position offsets to fit the hand perfectly
+      --lizardTail_.Tail2.Tail3.Bag:setPos(0, 0, 0)
+
+
+
+      -- 1. Get the starting position (the player's feet or head)
+      local startPos = player:getPos() -- Use player:getEyePos() if you want it from eye-level
+
+      -- 2. Get the direction vector the player is looking
+      local lookDirection = player:getLookDir()
+
+      -- 3. Decide how many blocks in front you want to look (e.g., 3 blocks)
+      local distance = 3
+
+      -- 4. Calculate the target position
+      local frontPos = startPos + vec(lookDirection.x, 0, lookDirection.z) * distance
+
+      lizardTail_.Tail2.Tail3.Bag:setParentType("World")
+      lizardTail_.Tail2.Tail3.Bag:setPos(frontPos * 16)
+
+      lizardTail_.Tail2.Tail3.Bag:setRot(0, 0, 0)
+      lizardTail_.Tail2.Tail3.Bag:setScale(modelScale_ * modelAdditionalScale_)
+    end
+
+  else
+    if lizardBag_ and lizardTail_.Tail2.Tail3.Bag then
+      -- Snap the weapon directly to the player's right hand group
+      lizardTail_.Tail2.Tail3.Bag:setParentType("MODEL")
+      -- Optional: Reset position offsets to fit the hand perfectly
+      lizardTail_.Tail2.Tail3.Bag:setPos(0, 0, 0)
+      lizardTail_.Tail2.Tail3.Bag:setRot(0, 0, 0)
+      lizardTail_.Tail2.Tail3.Bag:setScale(1)
+    end
+  end
+end
+
 --Make a model appear when typing. Moves the bags to the ground when opening inventory
 function GUIDTick()
 	-- Must be loaded
@@ -619,70 +686,7 @@ function GUIDTick()
       --print("You just closed the " .. lastScreen_ .. " screen!")
     end
 
-    lastScreen_ = currentScreen
-
-    --Check if using chat
-    if currentScreen and currentScreen:find("ChatScreen")  then
-     -- print("You are currently typing in chat!")
-        
-      -- Example: Make a "thinking" thought-bubble model part visible
-      if lizardFullbody_.DialogueBox then
-        lizardFullbody_.DialogueBox:setVisible(true)
-        animations[modelName_].dialogue:play()
-      end
-
-    else
-      -- Runs when you close the chat box and return to standard movement
-      -- Example: Hide your thinking model part again
-        if lizardFullbody_.DialogueBox then
-          lizardFullbody_.DialogueBox:setVisible(false)
-          animations[modelName_].dialogue:stop()
-        end
-    end
-
-    --Check if using inventory
-    if currentScreen and currentScreen:find("InventoryScreen")  then
-      --print("You are currently typing in your inventory!")
-        
-      -- Example: Make a "thinking" thought-bubble model part visible
-      if lizardBag_ and lizardTail_.Tail2.Tail3.Bag then
-        --print("setting parent")
-        -- Snap the weapon directly to the player's right hand group
-        --lizardTail_.Tail2.Tail3.Bag:setParentType("RightItemPivot")
-        -- Optional: Reset position offsets to fit the hand perfectly
-        --lizardTail_.Tail2.Tail3.Bag:setPos(0, 0, 0)
-
-
-
-        -- 1. Get the starting position (the player's feet or head)
-        local startPos = player:getPos() -- Use player:getEyePos() if you want it from eye-level
-
-        -- 2. Get the direction vector the player is looking
-        local lookDirection = player:getLookDir()
-
-        -- 3. Decide how many blocks in front you want to look (e.g., 3 blocks)
-        local distance = 3
-
-        -- 4. Calculate the target position
-        local frontPos = startPos + vec(lookDirection.x, 0, lookDirection.z) * distance
-
-        lizardTail_.Tail2.Tail3.Bag:setParentType("World")
-        lizardTail_.Tail2.Tail3.Bag:setPos(frontPos * 16)
-
-        lizardTail_.Tail2.Tail3.Bag:setRot(0, 0, 0)
-        lizardTail_.Tail2.Tail3.Bag:setScale(modelScale_ * modelAdditionalScale_)
-      end
-
-    else
-      if lizardBag_ and lizardTail_.Tail2.Tail3.Bag then
-        -- Snap the weapon directly to the player's right hand group
-        lizardTail_.Tail2.Tail3.Bag:setParentType("MODEL")
-        -- Optional: Reset position offsets to fit the hand perfectly
-        lizardTail_.Tail2.Tail3.Bag:setPos(0, 0, 0)
-        lizardTail_.Tail2.Tail3.Bag:setRot(0, 0, 0)
-        lizardTail_.Tail2.Tail3.Bag:setScale(1)
-      end
-    end
+    pings.updateLastScreen(currentScreen)
   end
 end
 
@@ -1237,9 +1241,16 @@ function pings.Charge()
 end
 
 
+--UI
+----
 --Makes an object visible when Chat is open
 function pings.setChat(bool)
   --slugcat.FullBody.ComMark:setVisible(bool)
+end
+
+
+function pings.updateLastScreen(currentScreen)
+  UpdateLastScreen(currentScreen)
 end
 
 
@@ -1294,6 +1305,8 @@ local function ReplaceSoundsPlayerMakes(id, pos, vol, pitch, loop, category, pat
     sounds:playSound("minecraft:block.slime_block.step", player:getPos(), 2.0, randomPitch)
     sounds:playSound("minecraft:block.slime_block.step", player:getPos(), 2.0, randomPitch)
     sounds:playSound("minecraft:block.slime_block.step", player:getPos(), 2.0, randomPitch)
+    return true
+  elseif weight_.ReplaceSoundsPlayerMakes(id, pos, vol, pitch, loop, category, path) then
     return true
   end
 

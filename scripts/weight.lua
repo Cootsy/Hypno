@@ -82,6 +82,8 @@ local crouchSqzEnabled_ = true --SET THIS TO "false" IF YOU DON'T WANT THE CROUC
 local baseHeight_ = 1 --THIS IS FOR SLUGCAT HEIGHT. SET TO "1" FOR DEFAULT PLAYER HITBOX HEIGHT
 local squeezeLoop_ = sounds["sounds.squeezesLOOP1"]:loop(true) --THIS IS THE SQUEEZE SFX FILE NAME. YOU CAN REPLACE IT WITH YOUR OWN .OGG FILE IF YOU WANT. IF IT'S TOO BIG YOU MIGHT NEED TO COMPRESS IT
 
+local complexFoodTracking = true --Only enable this if using the "AlwaysEat" and "Saturation_Plus" mods AND the hungerLimitsSaturation gamerule is true (/gamerule hungerLimitsSaturation true)
+--If you are using the default food tracking, or have unlimited saturation with mods, keep this as "false"
 
 -- ((OK DON'T CONFIGURE THE REST OF THESE))
 local myWidthMult_ = 1
@@ -103,13 +105,20 @@ local lastCrouchSqz_ = false
 local lastInWater_ = false
 local mainWidth_ = 0.6 --TRACK HITBOX WIDTH EXCLUDING CROUCHSEQUEEZE
 local lastBoundingX_ = 0.6
+local lastY = 0
 local featherFall_ = true
 
 local playSqueezeSfx_ = false
 local lastPlaySqueezeSfx_ = false
+local stepTime = 0
+
+local stored_step_sound
+local stored_secondary_step_sound
 
 --KEYBINDS
+local crSqueezeKey = keybinds:newKeybind("Crouchsqueeze", keybinds:getVanillaKey("key.sneak")) 
 local struggleKey_ = keybinds:newKeybind("Struggle", keybinds:getVanillaKey("key.jump"))
+local crSqueezeKeyState = false
 
 --==========================================================================================
 -- Retriever Functions
@@ -183,7 +192,7 @@ end
 
 --Whether the player is moving at all
 local function isKindaMoving()
-	return player:getVelocity():length() >= 0.005  --player:isMoving()
+	return player:getVelocity():length() >= 0.003 --player:isMoving()
 end
 
 --Grants movement brefly if stuck
@@ -523,6 +532,10 @@ end
 
 --Plays altered Vanilla Sound
 local function playGurgleSound()
+  --once a better sound is found then do this
+  if true then 
+    return
+  end
  
  --local sound = "sounds.gurgle_" .. math.random(0, 1)
   local sound = "minecraft:entity.drowned.ambient"
@@ -580,6 +593,51 @@ local function playBurpSound()
   if (weight_ >= 500) then
       shakeCamera(160, weightEffect_ * 0.1 )
   end
+end
+
+function PlayFootstep()
+	--CHEEKY PITCH MODIFIER FOR HEAVIER FOOTSTEPS
+	local pitchmod = 1
+	local volmod = 1
+	
+	-- ((CONFIGURE)) -- OPTIONAL, MODIFY YOUR FOOTSTEPS AT CERTAIN WEIGHTSTAGES. 
+	if lastWeightStage_ >= 3 then
+		pitchmod = 0.7
+		volmod = 1.4
+	elseif lastWeightStage_ >= 5 then
+		pitchmod = 0.5
+		volmod = 1.6
+	end
+	
+	if stored_step_sound then
+		sounds:playSound(
+            stored_step_sound.id,
+            stored_step_sound.pos,
+            stored_step_sound.volume * volmod,
+            stored_step_sound.pitch * pitchmod
+        )
+        if stored_secondary_step_sound then
+            sounds:playSound(
+                stored_secondary_step_sound.id,
+                stored_secondary_step_sound.pos,
+                stored_secondary_step_sound.volume * volmod,
+                stored_secondary_step_sound.pitch * pitchmod
+            )
+            stored_secondary_step_sound = nil
+        end
+    end
+end
+
+function we_.ReplaceSoundsPlayerMakes(id, pos, volume, pitch, loop, category, path)
+  local is_step = (id:find("step$") or id:find("soul_soil.place$") or id:find("_walk$") or id:find("_run$")) ~= nil
+  local is_secondary_step = id:find("brush_through$") ~= nil
+
+  if is_step then
+    stored_step_sound = {id = id, pos = pos, volume = volume, pitch = pitch,}
+  elseif is_secondary_step then
+    stored_secondary_step_sound = {id = id, pos = pos, volume = volume, pitch = pitch,}
+  end
+  return is_step or is_secondary_step
 end
 
 
@@ -684,6 +742,14 @@ local function UpdateFoodAndWeightTick()
   end
   prevFood_ = player:getFood()
   prevSaturation_ = player:getSaturation()
+
+  --SLOWLY LOSE WEIGHT IF ABOVE THE NORMAL CAP
+  if 25 < (player:getFood() + player:getSaturation()) and syncPingTimer_ == 0 then 
+    -- CONFIGURE -- (ONLY IF USING COMPLEX FOOD TRACKING) ADJUST HOW FAST YOU LOSE EXCESS WEIGHT
+    local lossRate = 1.0 --SUBTRACT THIS MANY FOOD POINTS EVERY ~4 SECONDS
+    --local lossRate = 1.0 * weightStage() --YOU MIGHT CONSIDER SOMETHING LIKE THIS IF YOU WANT TO LOSE WEIGHT FASTER AT HIGHER WEIGHT STAGES
+    setWeight(weight_ - lossRate)
+  end
 end
 
 --Manages the timers and stuff for effects
@@ -819,7 +885,7 @@ local function RotundHostTick()
   
   
   if struggleFlag_ then
-    if struggleFlag_ and player:getPose() ~= "SWIMMING" then
+    if struggleFlag_ then
       jumpMod_ = 1
     end
     struggleFlag_ = false
@@ -851,37 +917,28 @@ local function RotundAllTick()
 	else
 		squeezeLoop_:pause()
 	end
-	
-	--I THINK WE CAN SAFELY REACH SPEED 0 IN THE AIR SINCE THERE'S NO FOOTSTEPS
-	if moveMod_ == 0 and player:isMoving() and isKindaMoving() == false and player:getVelocity().y < 0 and (player:isOnGround() or player:isClimbing()) == false then 
-		pehkui_.setScale("pehkui:motion", 0, false)
-		pehkui_.setScale("pehkui:motion", 0, false)
-	end
-	
-	if moveMod_ == 0 and not isKindaMoving() then
-		-- pehkui.setScale("pehkui:view_bobbing", 0)
-		-- pehkui.setScale("pehkui:view_bobbing", 0)
-		-- print("vb")
-		-- animations:stopAll()
-		--WAIT WOULD THIS WORK...
-		if host:isHost() then
-			-- pehkui.setScale("pehkui:motion", 0)
-			-- pehkui.setScale("pehkui:motion", 0)
-		end
+
+  --IF WE'RE IMMOBILE MINING SPEED IS BROKE FOR SOME REASON. UNDO THAT.
+	if moveMod_ == 0 and player:isMoving() == false then
+		pehkui_.setScale("pehkui:mining_speed", 6, false)
 	else
-		-- pehkui.setScale("pehkui:view_bobbing", 1)
+		pehkui_.setScale("pehkui:mining_speed", 1, false)
+		pehkui_.setScale("pehkui:mining_speed", 1, false)
 	end
-	
-	--MODIFIED FROM THE WG_TEMPLATE. RECREATE OUR FOOTSTEPS BECAUSE WE DISABLED THE VANILLA ONES BECAUSE THEY BROKE
+
+  --RECREATE OUR FOOTSTEPS BECAUSE WE DISABLED THE VANILLA ONES BECAUSE THEY BROKE. MODIFIED FROM THE WG_TEMPLATE
 	-- Use a timer to determine step sound times
   if (player:isOnGround()) then
-    stepTime_ = stepTime_ + player:getVelocity():length()
-	elseif player:isClimbing() then
-		stepTime_ = stepTime_ + player:getVelocity():length() * 1.5
-  end
-  if (stepTime_ >= 1.625) then
-    stepTime_ = stepTime_ % 1.625
-    -- PlayFootstep() --MAYBE LATER WE'LL BRING THIS BACK BUT RIGHT NOW OTHER PLAYERS CAN'T EVEN HEAR IT
+    stepTime = stepTime + player:getVelocity():length()
+	elseif player:isClimbing() then --and player:getPos().y - lastY < 0.01  --THE SERVER DOESN'T CALCULATE OUR VELOCITY CORRECTLY ON LADDERS, SO WE HAVE TO CHECK Y VALUES INSTEAD
+		stepTime = stepTime + player:getVelocity():length() * 1.5
+		lastY = player:getPos().y 
+    end
+    if (stepTime >= 1.625) then
+        stepTime = stepTime % 1.625
+		if (player:getVelocity():length() > 0.01) then --AN ATTEMPT TO GET CLIENTS TO STOP RUNNING FOOTSTEPS WHILE STILL --IDK IF IT WORKED...
+			PlayFootstep() --MAYBE LATER WE'LL BRING THIS BACK BUT RIGHT NOW OTHER PLAYERS CAN'T EVEN HEAR IT
+		end
   end
 end
 
@@ -904,6 +961,8 @@ end
 function updateWeightStats(stage, squeezed, mm, jm, crouchSqz, wet) --OKAY WE NEED TO TAKE OUR SQUEEZED BOOL INTO ACCOUNT AND 'ONLY' RUN MOVEMENT SCALING IN HERE TO AVOID SPEED DESYNCS AND SERVER FALL DAMAGE
 	-- print("UPDATE WS " .. tostring(stage))
 	local mySpeedMult = 1
+	local myHeightMult = 1
+	local myJumpMult = 1
 	
 	--SOME NOTABLE WIDTH VALUES:
 	--1.0  default
@@ -926,36 +985,47 @@ function updateWeightStats(stage, squeezed, mm, jm, crouchSqz, wet) --OKAY WE NE
 	if stage <= 0 then
 		mySpeedMult = 1
 		myWidthMult_ = (1)
+		myHeightMult = ((crouchSqz and 0.8) or 1.0) --SET TO "1" FOR DEFAULT PLAYER HITBOX HEIGHT
 	elseif stage == 1 then
 		mySpeedMult = 0.9
 		myWidthMult_ = ((crouchSqz and 1.0) or 1.14) --THE FIRST NUMBER IS FOR WHEN YOURE CROUCH-SQUEEZING. THE SECOND NUMBER IS FOR EVERYTHING ELSE
+		myHeightMult = ((crouchSqz and 0.8) or 1.0)
 	elseif stage == 2 then
 		mySpeedMult = 0.85
 		myWidthMult_ = ((crouchSqz and 1.0) or 1.28)
+		myHeightMult = ((crouchSqz and 0.8) or 1.0)
 	elseif stage == 3 then
 		mySpeedMult = 0.8
-		myWidthMult_ = ((crouchSqz and 1.1) or 1.45) 
+		myWidthMult_ = ((crouchSqz and 1.1) or 1.45)
+		myHeightMult = ((crouchSqz and 0.8) or 1.0)
 	elseif stage == 4 then
 		mySpeedMult = 0.75
 		myWidthMult_ = ((crouchSqz and 1.28) or 1.60)
+		myHeightMult = ((crouchSqz and 0.8) or 1.0)
 	elseif stage == 5 then
 		mySpeedMult = 0.5
-		myWidthMult_ = ((crouchSqz and 2) or 2.5)
-	end
+		myWidthMult_ = ((crouchSqz and 1.60) or 2)
+		myHeightMult = ((crouchSqz and 0.8) or 1.0)
+  else
+    mySpeedMult = 0.5
+		myWidthMult_ = ((crouchSqz and 1.60) or 2)
+		myHeightMult = ((crouchSqz and 0.8) or 1.0)
+  end
 	--FEEL FREE TO ADD OR REMOVE WEIGHT STAGES HOWEVER YOU'D LIKE. DON'T FORGET TO MAKE THOSE SAME CHANGES TO THE "weightStage()" FUNCTION BELOW
 	--THERE ARE OTHER STATS YOU MIGHT CONSIDER ADDING INTO WEIGHT STAGES TOO...
 	-- pehkui_.setScale("pehkui:defense", 1)
 	-- pehkui_.setScale("pehkui:knockback", 1)
 	
-	
-	-- ((CONFIGURE)) -- GET SLIGHTLY SHORTER FOR CROUCHSQUEEZE
-	pehkui_.setScale("pehkui:hitbox_height", (crouchSqz_ and 0.5) or baseHeight_, false)
-	pehkui_.setScale("pehkui:eye_height", (crouchSqz_ and 0.5) or baseHeight_, false)
-	--I MADE THESE THE SAME IN EACH WEIGHT STAGE BUT YOU COULD MOVE THESE INTO EACH WEIGHT STAGE TO CHANGE THEM
+	pehkui_.setScale("pehkui:hitbox_height", myHeightMult, false)
+	pehkui_.setScale("pehkui:eye_height", myHeightMult, false)
 	
 	--REDUCE SPEED VALUES WHEN SQUEEZED
 	if squeezed then
-		mySpeedMult = mySpeedMult * 0.4
+		if squeezeVal_ < 0 then --(YES, IT CAN BE NEGATIVE WHILE CROUCH-SQUEEZED)
+			mySpeedMult = mySpeedMult * 0.1
+		else
+			mySpeedMult = mySpeedMult * 0.4
+		end
 	end
 	
 	--REDUCED FRICTION WHEN IN WATER.
@@ -966,7 +1036,10 @@ function updateWeightStats(stage, squeezed, mm, jm, crouchSqz, wet) --OKAY WE NE
 	
 	--SQUEEZE TO A MORE SUDDEN HALT FOR TIGHTER SQUEEZES.
 	if mm == 0 and isKindaMoving() then 
-		if squeezeVal_ < 0.08 then --TIGHT SQUEEZE 
+		if squeezeVal_ < 0 then --TIGHTEST SQUEEZE 
+			pehkui_.setScale("pehkui:motion", 0.1, false)
+			pehkui_.setScale("pehkui:motion", 0.1, false)
+		elseif squeezeVal_ < 0.08 then --TIGHT SQUEEZE 
 			pehkui_.setScale("pehkui:motion", 0.2, false)
 			pehkui_.setScale("pehkui:motion", 0.2, false)--YES WE HAVE TO RUN THIS TWICE TO SKIP THE TWEEN
 		else --MEDIUM SQUEEZE 
@@ -977,20 +1050,29 @@ function updateWeightStats(stage, squeezed, mm, jm, crouchSqz, wet) --OKAY WE NE
 	end
 	
 	--THANKS TO A PEHKUI BUG, WE CAN'T EVER LET MOTION BE 0 OR WE COULD TRIGGER THE THOUSAND FOOTSTEPS BUG
-	pehkui_.setScale("pehkui:motion", mySpeedMult * (((mm == 0) and 0.01) or mm), false)
+  local mot = mm and mm * mySpeedMult or 0.001
+  if mot < 0.001 then mot = 0.001 end
+	pehkui_.setScale("pehkui:motion", mot, false)
 	pehkui_.setScale("pehkui:hitbox_width", myWidthMult_, false)
 	
 	
 	--WTF IS IT DOING TO OUR GRAVITY?? FIX THAT
 	local speedlerp = (math.lerp(mySpeedMult, 1, 0.3))
-	local myJumpMult = (1/speedlerp)
+	if player:getPose() == "SWIMMING" then --DON'T JUMP IF THERE'S NO ROOM
+		myJumpMult = 0 
+	else
+		myJumpMult = (1/speedlerp)
+	end
 	pehkui_.setScale("pehkui:jump_height", myJumpMult * jm, false)
 	pehkui_.setScale("pehkui:jump_height", myJumpMult * jm, false)
 	pehkui_.setScale("pehkui:step_height", 1/mySpeedMult, false)
 	pehkui_.setScale("pehkui:step_height", 1/mySpeedMult, false)
 	pehkui_.setScale("pehkui:falling", (squeezed and 0) or mySpeedMult * mm, false) --DON'T BREAK OUR ANKLES WHEN SQUEEZING PLEASE
 	
-	UpdateSqueezeGraphics(stage)
+  local updateGraphics = false
+	if lastWeightStage_ ~= stage or lastSqueezed_ ~= squeezed then --THIS IS EXPENSIVE!!! ONLY UPDATE GRAPHICS IF THEY'VE CHANGED
+		updateGraphics = true
+	end
 	
 	lastWeightStage_ = stage
 	lastSqueezed_ = squeezed
@@ -998,6 +1080,10 @@ function updateWeightStats(stage, squeezed, mm, jm, crouchSqz, wet) --OKAY WE NE
 	lastMoveMod_ = mm
 	lateUpdateFlag_ = false
 	lastInWater_ = wet
+
+  if updateGraphics then
+		UpdateSqueezeGraphics(stage)
+	end
 end
 
 
@@ -1091,6 +1177,14 @@ function struggleKey_.press()
   struggleCheck()
 end
 
+function crSqueezeKey.press()
+  crSqueezeKeyState = true
+end
+
+function crSqueezeKey.release()
+  crSqueezeKeyState = false
+end
+
 
 
 
@@ -1180,6 +1274,8 @@ end
 function we_.post_render(delta, context)
   ReturnGUITONormalPostRender(delta, context)
 end
+
+
 
 
 return we_
